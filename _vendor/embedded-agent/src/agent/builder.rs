@@ -1,0 +1,616 @@
+use std::collections::HashSet;
+
+use rig::agent::{Agent, AgentBuilder};
+use rig::completion::CompletionModel;
+use smallvec::SmallVec;
+
+use crate::agent::prompt::{SYSTEM_PROMPT, TODO_TOOLS_PROMPT};
+use crate::agent::tools;
+use crate::cli::Cli;
+use crate::config::Config;
+use crate::context::ContextFiles;
+#[cfg(feature = "mcp")]
+use crate::extras::mcp::McpClientManager;
+use crate::permission::ask::AskSender;
+use crate::permission::checker::PermCheck;
+use crate::sandbox::Sandbox;
+
+/// Factory for one embedder-supplied tool instance. Factories (not instances)
+/// are registered because each agent build consumes its tools by value; the
+/// `Arc` makes the registry cloneable across builds and threads.
+pub type ExtraToolFactory = std::sync::Arc<dyn Fn() -> Box<dyn rig::tool::ToolDyn> + Send + Sync>;
+
+static EXTRA_TOOL_FACTORIES: std::sync::OnceLock<Vec<ExtraToolFactory>> =
+    std::sync::OnceLock::new();
+
+/// Register embedder tool factories (e.g. zerowrapper's in-process MCP
+/// providers). Call once at boot, before the first agent turn; later agent
+/// builds pick them up. Last call wins if invoked repeatedly.
+pub fn set_extra_tool_factories(factories: Vec<ExtraToolFactory>) {
+    let _ = EXTRA_TOOL_FACTORIES.set(factories);
+}
+
+/// Assemble the system-prompt preamble every request carries: the base
+/// `SYSTEM_PROMPT`, tool-use guidance, context files (AGENTS.md, ARCHITECTURE.md,
+/// active mode prompt), working directory, `/add`ed files, memory, and the user
+/// `SUFFIX.md`. Extracted from [`build_agent_inner`] so its token cost can be
+/// estimated (see [`estimate_overhead`]) without building an `Agent`.
+pub fn build_preamble(context: &ContextFiles, reasoning_enabled: bool) -> String {
+    // One-prompt override (embedder builds): a single file replaces the
+    // ENTIRE assembled preamble (base + todo guidance + context layers).
+    // Resolution: $ZS_SYSTEM_PROMPT_FILE, else ./SYSTEM.md in the process
+    // working directory (the agent workspace), else the assembled default.
+    // Note: tool JSON schemas still reach the model separately — only the
+    // prose guidance (including todo-tool usage) is replaced, so the file
+    // should document any tools the agent must prefer.
+    let single = std::env::var_os("ZS_SYSTEM_PROMPT_FILE")
+        .map(std::path::PathBuf::from)
+        .or_else(|| Some(std::path::PathBuf::from("SYSTEM.md")));
+    if let Some(path) = single {
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            if !text.trim().is_empty() {
+                return text;
+            }
+        }
+    }
+    let reasoning_prefix = if reasoning_enabled {
+        "You reason carefully and think step-by-step.\n\n"
+    } else {
+        "You respond concisely without showing your reasoning.\n\n"
+    };
+    let suffix = crate::session::storage::load_suffix();
+    let context_agents = context.agents.as_deref().unwrap_or("");
+    #[cfg(feature = "archmd")]
+    let context_architecture = context.architecture.as_deref().unwrap_or("");
+    let context_prompt = context.current_prompt.as_deref().unwrap_or("");
+    let cwd = std::env::current_dir()
+        .ok()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+
+    let total_len = reasoning_prefix.len()
+        + SYSTEM_PROMPT.len()
+        + 1
+        + TODO_TOOLS_PROMPT.len()
+        + if context.agents.is_some() {
+            2 + context_agents.len()
+        } else {
+            0
+        }
+        + if context.current_prompt.is_some() {
+            6 + context_prompt.len()
+        } else {
+            0
+        }
+        + if !cwd.is_empty() { 30 + cwd.len() } else { 0 };
+
+    #[cfg(feature = "archmd")]
+    let total_len = total_len
+        + if context.architecture.is_some() {
+            2 + context_architecture.len()
+        } else {
+            0
+        };
+
+    #[cfg(feature = "memory")]
+    let total_len = total_len
+        + context.memory.as_deref().map_or(0, |m| m.len() + 8) // "\n\n---\n\n" + content
+        + crate::agent::prompt::MEMORY_TOOLS_PROMPT.len();
+
+    let total_len = total_len + suffix.as_ref().map_or(0, |s| s.len() + 6); // "\n\n---\n\n"
+
+    // Add extra files content to preamble budget. Cap each file to prevent a
+    // huge file from blowing up the system prompt past the context window.
+    const MAX_EXTRA_FILE_BYTES: usize = 524_288;
+    let mut extra_files_direct: Vec<(String, String)> = Vec::new();
+    let mut extra_files_len: usize = 0;
+    for p in &context.extra_files {
+        if let Ok(content) = std::fs::read_to_string(p) {
+            let truncated = if content.len() > MAX_EXTRA_FILE_BYTES {
+                tracing::warn!(
+                    "extra file {} exceeds {} bytes, truncated for preamble",
+                    p.display(),
+                    MAX_EXTRA_FILE_BYTES
+                );
+                let mut end = MAX_EXTRA_FILE_BYTES;
+                while !content.is_char_boundary(end) && end > 0 {
+                    end -= 1;
+                }
+                let mut t = content[..end].to_string();
+                t.push_str("\n\n[truncated — file exceeded preamble size limit]");
+                t
+            } else {
+                content
+            };
+            let header = format!("Content of {}:\n", p.display());
+            extra_files_len += header.len() + truncated.len() + 4; // "\n\n---\n\n"
+            extra_files_direct.push((header, truncated));
+        }
+    }
+    let total_len = total_len + extra_files_len;
+
+    let mut preamble = String::with_capacity(total_len);
+    preamble.push_str(reasoning_prefix);
+    preamble.push_str(SYSTEM_PROMPT);
+    preamble.push('\n');
+    preamble.push_str(TODO_TOOLS_PROMPT);
+    if !context_agents.is_empty() {
+        preamble.push_str("\n\n");
+        preamble.push_str(context_agents);
+    }
+    #[cfg(feature = "archmd")]
+    if !context_architecture.is_empty() {
+        preamble.push_str("\n\n");
+        preamble.push_str(context_architecture);
+    }
+    if !context_prompt.is_empty() {
+        preamble.push_str("\n\n---\n\n");
+        preamble.push_str(context_prompt);
+    }
+    if !cwd.is_empty() {
+        preamble.push_str("\n\nCurrent working directory: ");
+        preamble.push_str(&cwd);
+    }
+    for (header, truncated) in &extra_files_direct {
+        preamble.push_str("\n\n---\n\n");
+        preamble.push_str(header);
+        preamble.push_str(truncated);
+    }
+    #[cfg(feature = "memory")]
+    {
+        crate::extras::memory::append_memory_block(&mut preamble, context.memory.as_deref());
+        preamble.push_str(crate::agent::prompt::MEMORY_TOOLS_PROMPT);
+    }
+    if let Some(s) = &suffix {
+        preamble.push_str("\n\n---\n\n");
+        preamble.push_str(s);
+    }
+    preamble
+}
+
+/// Estimate the token cost of the fixed request overhead (the preamble from
+/// [`build_preamble`]). Stored on the session and added to the context figure
+/// before the first real calibration. Does not yet include tool-schema tokens;
+/// the provider's first usage report folds those into the calibration anchor.
+pub fn estimate_overhead(context: &ContextFiles, reasoning_enabled: bool) -> u64 {
+    crate::session::Session::estimate_tokens(&build_preamble(context, reasoning_enabled))
+}
+
+/// Retain only the tools whose names appear in `allowlist`. An empty
+/// allowlist passes everything through unchanged. Unrecognized names are
+/// reported via `eprintln` and `tracing::warn`, with a case-insensitive
+/// suggestion when applicable.
+pub(crate) fn filter_tools_by_allowlist(
+    tools: Vec<Box<dyn rig::tool::ToolDyn>>,
+    allowlist: &[String],
+) -> Vec<Box<dyn rig::tool::ToolDyn>> {
+    let cleaned: Vec<String> = allowlist
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if cleaned.is_empty() {
+        return tools;
+    }
+    let allowed: HashSet<String> = cleaned.iter().cloned().collect();
+    let available: Vec<String> = tools.iter().map(|t| t.name()).collect();
+    for name in &allowed {
+        if !available.iter().any(|t| t == name) {
+            let suggestion = available
+                .iter()
+                .find(|t| t.eq_ignore_ascii_case(name))
+                .map(|s| format!(" (did you mean '{s}'?)"))
+                .unwrap_or_default();
+            eprintln!("warning: --tools: unknown tool '{name}'{suggestion} (ignored)");
+            tracing::warn!("--tools: unknown tool '{name}' (ignored)");
+        }
+    }
+    if tracing::enabled!(tracing::Level::WARN) {
+        // Also list available tools when filtering leaves empty, to help typo discovery.
+        let filtered: Vec<_> = tools
+            .iter()
+            .filter(|t| allowed.contains(&t.name()))
+            .collect();
+        if filtered.is_empty() {
+            tracing::warn!(
+                "--tools: filter left no tools (allowlist: {:?}); available: {:?}",
+                allowed,
+                available
+            );
+        }
+    }
+    let allowed_ref: HashSet<&str> = allowed.iter().map(|s| s.as_str()).collect();
+    let filtered: Vec<Box<dyn rig::tool::ToolDyn>> = tools
+        .into_iter()
+        .filter(|t| allowed_ref.contains(t.name().as_str()))
+        .collect();
+    if filtered.is_empty() && !allowed_ref.is_empty() {
+        eprintln!(
+            "warning: --tools filter left no tools; available: {}",
+            available.join(", ")
+        );
+    }
+    filtered
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn build_agent_inner<M: CompletionModel + 'static>(
+    model: M,
+    cli: &Cli,
+    cfg: &Config,
+    context: &ContextFiles,
+    permission: Option<PermCheck>,
+    ask_tx: Option<AskSender>,
+    sandbox: Sandbox,
+    reasoning_enabled: bool,
+    temperature: Option<f64>,
+    // Provider-specific extra body params (e.g. OpenRouter `provider.order` to
+    // pin Claude to the Anthropic direct route so `cache_control` is honored).
+    // `None` for providers that need no extra routing.
+    additional_params: Option<serde_json::Value>,
+    #[cfg(feature = "mcp")] mcp_manager: Option<&McpClientManager>,
+    extra_tools: Vec<Box<dyn rig::tool::ToolDyn>>,
+) -> Agent<crate::agent::image_relay::ImageRelayModel<M>> {
+    #[cfg(feature = "lsp")]
+    let lsp_manager = if cli.resolve_no_tools(cfg) {
+        None
+    } else {
+        cfg.resolve_lsp().map(|c| {
+            crate::extras::lsp::LspManager::new(c, std::env::current_dir().unwrap_or_default())
+        })
+    };
+
+    #[cfg(feature = "rtk")]
+    let rtk = if cli.resolve_no_tools(cfg) {
+        None
+    } else {
+        crate::extras::rtk::Rtk::detect(cfg.resolve_rtk()).await
+    };
+
+    #[cfg_attr(not(any(feature = "lsp", feature = "rtk")), allow(unused_mut))]
+    let mut preamble = build_preamble(context, reasoning_enabled);
+    #[cfg(feature = "lsp")]
+    if lsp_manager.is_some() {
+        preamble.push_str(crate::agent::prompt::LSP_PROMPT);
+    }
+    #[cfg(feature = "rtk")]
+    if rtk.is_some() {
+        preamble.push_str(crate::agent::prompt::RTK_PROMPT);
+    }
+
+    let mut builder = AgentBuilder::new(crate::agent::image_relay::ImageRelayModel::new(model))
+        .preamble(&preamble);
+
+    if let Some(params) = additional_params {
+        builder = builder.additional_params(params);
+    }
+
+    let max_tokens = cli.resolve_max_tokens(cfg);
+    builder = builder.max_tokens(max_tokens);
+
+    let max_turns = cli.resolve_max_agent_turns(cfg);
+    builder = builder.default_max_turns(max_turns);
+
+    if let Some(temp) = temperature {
+        builder = builder.temperature(temp);
+    }
+
+    if cli.resolve_no_tools(cfg) {
+        builder.build()
+    } else {
+        let max_text_file_size = cfg.max_text_file_size;
+        let max_read_lines = cfg.resolve_max_read_lines();
+        let max_bash_output_lines = cfg.resolve_max_bash_output_lines();
+        let max_grep_results = cfg.resolve_max_grep_results();
+        let max_find_results = cfg.resolve_max_find_results();
+        let max_list_dir_entries = cfg.resolve_max_list_dir_entries();
+        let write_tool =
+            tools::WriteTool::new(permission.clone(), ask_tx.clone(), max_text_file_size);
+        #[cfg(feature = "lsp")]
+        let write_tool = write_tool.with_lsp(lsp_manager.clone());
+        let edit_tool = tools::EditTool::new(permission.clone(), ask_tx.clone());
+        #[cfg(feature = "lsp")]
+        let edit_tool = edit_tool.with_lsp(lsp_manager.clone());
+        let base_tools: SmallVec<[Box<dyn rig::tool::ToolDyn>; 9]> = SmallVec::from_buf([
+            Box::new(tools::ReadTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_text_file_size,
+                max_read_lines,
+            )),
+            Box::new(tools::ReadImageTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )),
+            Box::new(write_tool),
+            Box::new(edit_tool),
+            Box::new(tools::BashTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                sandbox.clone(),
+                max_bash_output_lines,
+                #[cfg(feature = "rtk")]
+                rtk,
+            )),
+            Box::new(tools::GrepTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_grep_results,
+            )),
+            Box::new(tools::FindFilesTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_find_results,
+            )),
+            Box::new(tools::ListDirTool::new(
+                permission.clone(),
+                ask_tx.clone(),
+                max_list_dir_entries,
+            )),
+            Box::new(tools::WriteTodoList::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )),
+        ]);
+
+        #[cfg_attr(
+            not(any(
+                feature = "subagents",
+                feature = "memory",
+                feature = "mcp",
+                feature = "advisor",
+                feature = "lsp"
+            )),
+            allow(unused_mut)
+        )]
+        let mut all_tools: Vec<Box<dyn rig::tool::ToolDyn>> = base_tools.into_vec();
+
+        #[cfg(feature = "subagents")]
+        if cfg.task_enabled.unwrap_or(true) {
+            use crate::extras::subagents::task_tool::TaskTool;
+            all_tools.push(Box::new(TaskTool::new(permission.clone(), ask_tx.clone())));
+        }
+
+        #[cfg(feature = "memory")]
+        {
+            use crate::extras::memory::{MemoryEdit, MemoryRead, MemorySearch, MemoryWrite};
+            all_tools.push(Box::new(MemoryWrite::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )));
+            all_tools.push(Box::new(MemoryEdit::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )));
+            all_tools.push(Box::new(MemoryRead::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )));
+            all_tools.push(Box::new(MemorySearch::new(
+                permission.clone(),
+                ask_tx.clone(),
+            )));
+        }
+
+        #[cfg(feature = "mcp")]
+        if let Some(manager) = &mcp_manager {
+            let allow_all = cfg.allow_all_mcp_calls.unwrap_or(false);
+            if allow_all && let Some(ref perm) = permission {
+                perm.lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .set_allow_all_mcp_calls(true);
+            }
+            let mcp_tools = manager
+                .collect_tools(permission.clone(), ask_tx.clone())
+                .await;
+            for t in mcp_tools {
+                all_tools.push(Box::new(t) as Box<dyn rig::tool::ToolDyn>);
+            }
+        }
+
+        #[cfg(feature = "advisor")]
+        if crate::extras::advisor::is_enabled() {
+            use crate::extras::advisor::AdvisorTool;
+            all_tools.push(Box::new(AdvisorTool::new()));
+        }
+
+        #[cfg(feature = "lsp")]
+        if let Some(lsp) = &lsp_manager {
+            all_tools.push(Box::new(tools::lsp::LspTool::new(lsp.clone())));
+        }
+
+        let mut all_tools = filter_tools_by_allowlist(all_tools, &cli.resolve_tools(cfg));
+
+        // Embedder tools (registered via `set_extra_tool_factories`): appended
+        // AFTER the CLI allowlist so an explicitly injected tool is always
+        // present, with its original (unprefixed) name intact.
+        if let Some(factories) = EXTRA_TOOL_FACTORIES.get() {
+            all_tools.extend(factories.iter().map(|f| f()));
+        }
+        // Per-engine embedder tools (e.g. session-bound `ask_user`): same
+        // treatment, constructed with engine context by the embedder.
+        all_tools.extend(extra_tools);
+
+        #[cfg(feature = "hooks")]
+        let all_tools = crate::extras::hooks::wrap_from_global(all_tools, permission.clone());
+
+        builder.tools(all_tools).build()
+    }
+}
+
+/// Dedicated system prompt for the `/btw` side-assistant. Deliberately NOT the
+/// main coding `SYSTEM_PROMPT`: that one is all about using read/write/bash
+/// tools, so pairing it with "you have no tools" made the model refuse and tell
+/// the user to wait for the main agent. This prompt frames `/btw` as a quick,
+/// read-only Q&A helper whose only job is to answer the user's question.
+const BTW_SYSTEM_PROMPT: &str = "\
+You are a fast side-assistant for quick \"by the way\" questions during a coding \
+session. The user pressed /btw to ask you something in parallel with the main \
+assistant, WITHOUT interrupting it.
+
+Your only job: answer the user's question directly, briefly, and helpfully, using \
+the conversation so far and the project context below. Reply in the user's \
+language.
+
+Match your length to the question: greetings, thanks, or yes/no questions get a \
+ONE-LINE reply. Do NOT volunteer project setup, build, run, or test instructions \
+unless the user explicitly asks how to build or run. The project context below is \
+background for answering; it is NOT a script to recite.
+
+This is a read-only side channel: you have read-only tools (read, grep, \
+find_files, list_dir) to look things up, but you CANNOT write files, run \
+commands, or change anything, and your reply is NOT saved to the conversation. \
+Use the read tools when answering needs a file you do not already have in \
+context, and keep it to what the question asks. Do NOT attempt or plan the main \
+task, and do NOT tell the user to wait for the main assistant; just answer what \
+they asked.";
+
+/// Max model turns for a `/btw` side question. Higher than 1 so it can read a
+/// file (or grep) and then answer, but small to keep side questions quick.
+const BTW_MAX_TURNS: usize = 8;
+
+/// Builds the isolated `/btw` agent: a lightweight read-only Q&A helper with the
+/// project context for reference, NO tools, and a single turn. Never mutates the
+/// session.
+#[allow(clippy::too_many_arguments)]
+pub fn build_btw_agent_inner<M: CompletionModel + 'static>(
+    model: M,
+    cli: &Cli,
+    cfg: &Config,
+    context: &ContextFiles,
+    permission: &Option<PermCheck>,
+    ask_tx: &Option<AskSender>,
+    _reasoning_enabled: bool,
+    temperature: Option<f64>,
+    // See `build_agent_inner`: OpenRouter `provider.order` pin for `anthropic/*`.
+    additional_params: Option<serde_json::Value>,
+) -> Agent<crate::agent::image_relay::ImageRelayModel<M>> {
+    let cwd = std::env::current_dir()
+        .ok()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+
+    let mut preamble = String::new();
+    preamble.push_str(BTW_SYSTEM_PROMPT);
+
+    // Project context, for reference only — NOT instructions to act on.
+    let has_ctx = context.agents.as_deref().is_some_and(|s| !s.is_empty()) || !cwd.is_empty();
+    if has_ctx {
+        preamble.push_str("\n\n## Project context (for reference)\n");
+    }
+    if let Some(agents) = context.agents.as_deref()
+        && !agents.is_empty()
+    {
+        preamble.push('\n');
+        preamble.push_str(agents);
+    }
+    #[cfg(feature = "archmd")]
+    if let Some(arch) = context.architecture.as_deref()
+        && !arch.is_empty()
+    {
+        preamble.push_str("\n\n");
+        preamble.push_str(arch);
+    }
+    if let Some(p) = context.current_prompt.as_deref()
+        && !p.is_empty()
+    {
+        preamble.push_str("\n\n");
+        preamble.push_str(p);
+    }
+    if !cwd.is_empty() {
+        preamble.push_str("\n\nCurrent working directory: ");
+        preamble.push_str(&cwd);
+    }
+    #[cfg(feature = "memory")]
+    crate::extras::memory::append_memory_block(&mut preamble, context.memory.as_deref());
+
+    if let Some(s) = crate::session::storage::load_suffix() {
+        preamble.push_str("\n\n---\n\n");
+        preamble.push_str(&s);
+    }
+
+    let max_tokens = cli.resolve_max_tokens(cfg);
+
+    // Honor --no-tools: fall back to a pure-context, single-turn answer.
+    if cli.resolve_no_tools(cfg) {
+        let mut builder = AgentBuilder::new(crate::agent::image_relay::ImageRelayModel::new(model))
+            .preamble(&preamble)
+            .default_max_turns(1)
+            .max_tokens(max_tokens);
+        if let Some(params) = additional_params.clone() {
+            builder = builder.additional_params(params);
+        }
+        if let Some(temp) = temperature {
+            builder = builder.temperature(temp);
+        }
+        return builder.build();
+    }
+
+    // Read-only tools only (read/grep/find_files/list_dir): a side question can
+    // look things up, but has no write/edit/bash, so it still has no side
+    // effects to roll back and never mutates the session. Allow multiple turns
+    // so it can read then answer. Respects --tools allowlist as an intersection
+    // (so --tools read,write still only gives read for btw).
+    let max_text_file_size = cfg.max_text_file_size;
+    let max_read_lines = cfg.resolve_max_read_lines();
+    let max_grep_results = cfg.resolve_max_grep_results();
+    let max_find_results = cfg.resolve_max_find_results();
+    let max_list_dir_entries = cfg.resolve_max_list_dir_entries();
+    let mut read_tools: Vec<Box<dyn rig::tool::ToolDyn>> = vec![
+        Box::new(tools::ReadTool::new(
+            permission.clone(),
+            ask_tx.clone(),
+            max_text_file_size,
+            max_read_lines,
+        )),
+        Box::new(tools::ReadImageTool::new(
+            permission.clone(),
+            ask_tx.clone(),
+        )),
+        Box::new(tools::GrepTool::new(
+            permission.clone(),
+            ask_tx.clone(),
+            max_grep_results,
+        )),
+        Box::new(tools::FindFilesTool::new(
+            permission.clone(),
+            ask_tx.clone(),
+            max_find_results,
+        )),
+        Box::new(tools::ListDirTool::new(
+            permission.clone(),
+            ask_tx.clone(),
+            max_list_dir_entries,
+        )),
+    ];
+    // Respect --tools: intersection with read-only set, silently (no warnings for
+    // valid-but-not-applicable tools like `write`).
+    {
+        let allowlist = cli.resolve_tools(cfg);
+        let cleaned: Vec<String> = allowlist
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !cleaned.is_empty() {
+            let allowed: std::collections::HashSet<String> = cleaned.into_iter().collect();
+            read_tools.retain(|t| allowed.contains(&t.name()));
+        }
+    }
+
+    let mut builder = AgentBuilder::new(crate::agent::image_relay::ImageRelayModel::new(model))
+        .preamble(&preamble)
+        .default_max_turns(BTW_MAX_TURNS)
+        .max_tokens(max_tokens)
+        .tools(read_tools);
+
+    if let Some(params) = additional_params {
+        builder = builder.additional_params(params);
+    }
+
+    if let Some(temp) = temperature {
+        builder = builder.temperature(temp);
+    }
+
+    builder.build()
+}

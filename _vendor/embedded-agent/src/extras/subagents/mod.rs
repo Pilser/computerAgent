@@ -1,0 +1,106 @@
+use std::sync::{Arc, Mutex};
+
+use tokio::sync::mpsc;
+
+use crate::event::AgentEvent;
+use crate::provider::AnyClient;
+
+pub(crate) mod builder;
+pub(crate) mod prompt;
+pub(crate) mod task_tool;
+
+pub(crate) struct SubagentConfig {
+    pub client: AnyClient,
+    pub model_name: String,
+    pub max_turns: usize,
+    pub config: Arc<crate::config::Config>,
+    pub tools_allowlist: Vec<String>,
+    #[cfg(feature = "archmd")]
+    pub architecture: Option<String>,
+}
+
+static CONFIG: Mutex<Option<SubagentConfig>> = Mutex::new(None);
+
+static SUBAGENT_EVENT_TX: Mutex<Option<mpsc::Sender<AgentEvent>>> = Mutex::new(None);
+
+pub(crate) fn set_subagent_event_tx(tx: mpsc::Sender<AgentEvent>) {
+    let mut guard = SUBAGENT_EVENT_TX.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = Some(tx);
+}
+
+pub(crate) fn clone_subagent_event_tx() -> Option<mpsc::Sender<AgentEvent>> {
+    let guard = SUBAGENT_EVENT_TX.lock().unwrap_or_else(|e| e.into_inner());
+    guard.clone()
+}
+
+pub(crate) fn with_config<F, R>(f: F) -> R
+where
+    F: FnOnce(&SubagentConfig) -> R,
+{
+    let guard = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+    let cfg = guard
+        .as_ref()
+        .expect("subagents: SubagentConfig not initialized (call init() in main.rs)");
+    f(cfg)
+}
+
+pub(crate) fn tools_allowlist_or_default() -> Vec<String> {
+    let guard = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+    guard
+        .as_ref()
+        .map(|c| c.tools_allowlist.clone())
+        .unwrap_or_default()
+}
+
+pub fn init(
+    client: AnyClient,
+    model_name: String,
+    max_turns: usize,
+    config: Arc<crate::config::Config>,
+    tools_allowlist: Vec<String>,
+    #[cfg(feature = "archmd")] architecture: Option<String>,
+) {
+    let mut guard = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = Some(SubagentConfig {
+        client,
+        model_name,
+        max_turns,
+        config,
+        tools_allowlist,
+        #[cfg(feature = "archmd")]
+        architecture,
+    });
+}
+
+pub fn set_client_and_model(client: AnyClient, model_name: String) {
+    let mut guard = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(cfg) = guard.as_mut() {
+        cfg.client = client;
+        cfg.model_name = model_name;
+    }
+}
+
+pub fn set_model_name(model_name: String) {
+    let mut guard = CONFIG.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(cfg) = guard.as_mut() {
+        cfg.model_name = model_name;
+    }
+}
+
+static ASK_TOOL_FACTORY: Mutex<
+    Option<Arc<dyn Fn() -> Box<dyn rig::tool::ToolDyn> + Send + Sync>>,
+> = Mutex::new(None);
+
+pub fn set_ask_tool_factory(
+    factory: Arc<dyn Fn() -> Box<dyn rig::tool::ToolDyn> + Send + Sync>,
+) {
+    *ASK_TOOL_FACTORY.lock().unwrap_or_else(|e| e.into_inner()) = Some(factory);
+}
+
+pub(crate) fn ask_tool_factory(
+) -> Option<Arc<dyn Fn() -> Box<dyn rig::tool::ToolDyn> + Send + Sync>> {
+    ASK_TOOL_FACTORY
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
