@@ -16,11 +16,13 @@ These rules are load-bearing. Slow disk + 7.6 GiB RAM: a stray `cargo build --re
 All local cargo runs MUST go through the wrappers (they set target dir + caps):
 
 ```bash
-./scripts/ram-check.sh   # == cargo check --workspace --tests with RAM caps
-./scripts/ram-test.sh    # == cargo test --workspace with RAM caps
+./scripts/ram-check.sh -p <crate>  # == cargo check --tests -p <crate>, RAM target + caps
+./scripts/ram-test.sh -p <crate>   # == cargo test -p <crate>, RAM target + caps
 ./scripts/check-bloat.sh # no caps needed, always allowed
 cargo fmt --check        # allowed (no build artifacts)
 ```
+
+SCOPE RULE (resource saving): ALWAYS pass `-p <phase-crate>` — check/test ONLY the crate you changed. NEVER `--workspace` (wrappers refuse it). Full-workspace runs are allowed ONLY at integration phases (8+) with explicit user approval.
 
 What the wrappers set (do NOT override to be more parallel):
 
@@ -29,8 +31,8 @@ export CARGO_TARGET_DIR=/dev/shm/ca-target        # RAM tmpfs, never repo ./targ
 export CARGO_BUILD_JOBS=2                          # 4-core box: leave 2 cores for desktop
 export CARGO_INCREMENTAL=0                         # less RAM, slower rebuild is fine
 export RUSTFLAGS="-C codegen-units=4"              # cap parallel codegen memory
-# invocation: cargo check --workspace --tests --jobs 2
-#             cargo test  --workspace --jobs 2 -- --test-threads=2
+# invocation: cargo check --tests -p <crate> --jobs 2
+#             cargo test -p <crate> --jobs 2 -- --test-threads=2
 ```
 
 RAM guardrails (wrappers enforce, humans too):
@@ -58,7 +60,7 @@ Phases are in `docs/ARCHITECTURE.md §7`. Rules for every implementation subagen
 5. Sandbox stays `enabled=false` default. Any PR flipping the default is rejected.
 6. Memory stays. `memory/` changes must keep the 32 KiB inject / 64 KiB write caps.
 7. Frontends may ONLY call `command-api::dispatch()`. A frontend importing `sys-tools`, `agent` internals, or `std::process`/`tokio::fs` directly is rejected.
-8. Each phase ends with: `cargo fmt`, `./scripts/ram-check.sh`, `./scripts/ram-test.sh`, `./scripts/check-bloat.sh --max 500`, plus updated `docs/` notes if behavior changed.
+8. Each phase ends with: `cargo fmt`, `./scripts/ram-check.sh -p <phase-crate>`, `./scripts/ram-test.sh -p <phase-crate>`, `./scripts/check-bloat.sh --max 500`, plus updated `docs/` notes if behavior changed.
 9. Commit message prefix: `phase<N>: <crate> - <what>` (e.g. `phase2: policy - port checker`). One phase = one commit. Do NOT commit `_vendor` changes (read-only).
 10. If a phase needs a tool the sandbox would block, ASK in the session (post `Ask` event) — do NOT silently disable policy/sandbox to get tests green.
 

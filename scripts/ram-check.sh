@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# RAM-capped cargo check. ONLY local check entrypoint (see AGENTS.md §2).
+# Usage: ./scripts/ram-check.sh -p <crate> [extra cargo args...]
+# ALWAYS scope to one crate (-p). NEVER --workspace (see AGENTS.md §2).
+# Full-workspace check is allowed ONLY at integration phases (8+).
 set -euo pipefail
 REQ_SHM_MB=1024
 REQ_AVAIL_MB=2048
@@ -15,4 +17,14 @@ export CARGO_BUILD_JOBS=2
 export CARGO_INCREMENTAL=0
 export RUSTFLAGS="-C codegen-units=4"
 mkdir -p "$CARGO_TARGET_DIR"
-exec cargo check --workspace --tests --jobs 2 "$@"
+if [ "$#" -eq 0 ]; then
+  echo "Usage: $0 -p <crate> [...]. Refusing unscoped run (see AGENTS.md §2)."
+  exit 1
+fi
+for a in "$@"; do
+  if [ "$a" = "--workspace" ]; then
+    echo "REFUSING --workspace: scope to one crate with -p (integration phases 8+ only)."
+    exit 1
+  fi
+done
+exec cargo check --tests --jobs 2 "$@"
