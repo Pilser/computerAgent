@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/command-api",
     "crates/policy",
+    "crates/session-store",
 ]
 
 [workspace.dependencies]
@@ -10,6 +11,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 regex = "1"
 thiserror = "2"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["macros", "rt"] }
 
 # Release tuning lives here so that .github/workflows/release.yml is the
