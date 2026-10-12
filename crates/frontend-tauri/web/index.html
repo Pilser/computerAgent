@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>computerAgent</title>
+  </head>
+  <body>
+    <input id="prompt" placeholder="Ask the assistant…" />
+    <button id="send">Send</button>
+    <pre id="out"></pre>
+    <script type="module">
+      const { invoke } = window.__TAURI__.core;
+      document.getElementById("send").addEventListener("click", async () => {
+        const prompt = document.getElementById("prompt").value;
+        document.getElementById("out").textContent = await invoke("agent_run_cmd", {
+          prompt,
+          sessionId: null,
+        });
+      });
+    </script>
+  </body>
+</html>

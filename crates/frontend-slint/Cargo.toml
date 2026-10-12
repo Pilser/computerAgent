@@ -5,9 +5,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+slint = "1"
 tokio = { workspace = true }
 command-api = { path = "../command-api" }
 computer-agent-engine = { path = "../engine" }
+
+[build-dependencies]
+slint-build = "1"
 
 [dev-dependencies]
 tokio = { workspace = true }

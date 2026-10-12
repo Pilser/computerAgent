@@ -1,0 +1,25 @@
+import { Button, LineEdit, TextEdit, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "computerAgent";
+    preferred-width: 640px;
+    preferred-height: 480px;
+
+    callback send(string);
+    in-out property <string> result: "Ask the assistant, then press Send.";
+
+    VerticalBox {
+        input := LineEdit {
+            placeholder-text: "Ask the assistant…";
+        }
+        Button {
+            text: "Send";
+            clicked => { root.send(input.text); }
+        }
+        TextEdit {
+            text: root.result;
+            read-only: true;
+            min-height: 200px;
+        }
+    }
+}

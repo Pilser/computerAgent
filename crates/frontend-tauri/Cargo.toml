@@ -3,12 +3,23 @@ name = "computer-agent-frontend-tauri"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+# Full Tauri app (event loop + IPC handlers). Needs system webkit, so it is
+# OFF by default: local check/test and CI release stay on default features.
+# Enable in CI/dev machines with system deps: `--features tauri-app`.
+tauri-app = ["dep:tauri", "dep:tauri-build"]
+
 [dependencies]
 anyhow = "1"
 tokio = { workspace = true }
 command-api = { path = "../command-api" }
 computer-agent-engine = { path = "../engine" }
 serde_json = { workspace = true }
+tauri = { version = "2", optional = true }
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

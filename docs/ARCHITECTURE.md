@@ -8,6 +8,7 @@ Decisions locked in this doc: sandbox OFF by default, memory KEPT, dual frontend
 ## 0. Base import
 
 - `_vendor/embedded-agent/` = zerostack 1.8.4, `.git`/`.github` stripped, committed as baseline. Read-only reference. NEVER a workspace member. NEVER copy `src/ui/`.
+- The vendored copy stays COMPLETE (not file-stripped): 12 of its files reference `ui::` helpers (`session`, `engine/sink`, `agent/builder`, …), so deleting `src/ui/` would break the reference lib. Physical TUI removal is fork-side surgery, tracked as a milestone (private `Pilser/embedded-agent` repo reserved for the stripped dependency).
 - All new code lives in `crates/*`. Port is file-by-file, phase-by-phase via subagents (see `AGENTS.md` phases). Delete `_vendor` only after parity.
 
 ## 1. Folder structure (target tree, nothing scaffolded yet)
@@ -145,12 +146,14 @@ computerAgent/
         inject.rs         # context_block() -> <memory>...</memory>
     frontend-slint/src/
       lib.rs
-      app.rs              # window wiring only, no logic
+      app.rs              # headless dispatch proofs (no window, test-safe)
+      window.rs           # REAL Slint window: AppWindow + send callback -> engine
       bridge.rs           # callbacks -> command-api::dispatch() ONLY
       views/
         mod.rs            # chat.slint, approval.slint, settings.slint land here
     frontend-tauri/src/
       lib.rs
+      app.rs              # REAL tauri::Builder, --features tauri-app only
       commands.rs         # #[tauri::command] -> dispatch() SAME enum
       web/
         mod.rs            # api.ts (same Command JSON, enables cloud reuse)
@@ -220,3 +223,4 @@ UI tools: frontends expose NO tools directly. Approval dialogs (`Ask`) come from
 8. `engine/turns` wiring `dispatch(AgentRun)` end-to-end + tests.
 9. `frontend-slint` + `frontend-tauri` thin shells calling `dispatch(SystemInfo, AgentRun)`.
 10. Strip audit: confirm no `ui/`, `setup/`, `startup.rs`, `print.rs`, `cli.rs` ported; remove `_vendor` after parity.
+11. Real backends: LLM HTTP in `agent/provider` (reqwest), streaming runner, `edit/grep/find/todo` tools, Slint views polish, Tauri system-deps CI job (`--features tauri-app`), fork-side strip into `Pilser/embedded-agent` as git dependency.
