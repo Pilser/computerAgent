@@ -1,0 +1,14 @@
+[package]
+name = "computer-agent-frontend-tauri"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+tokio = { workspace = true }
+command-api = { path = "../command-api" }
+computer-agent-engine = { path = "../engine" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

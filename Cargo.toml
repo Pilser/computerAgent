@@ -4,6 +4,8 @@ members = [
     "crates/agent",
     "crates/command-api",
     "crates/engine",
+    "crates/frontend-slint",
+    "crates/frontend-tauri",
     "crates/policy",
     "crates/session-store",
     "crates/sys-tools",

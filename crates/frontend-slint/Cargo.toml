@@ -1,0 +1,13 @@
+[package]
+name = "computer-agent-frontend-slint"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+tokio = { workspace = true }
+command-api = { path = "../command-api" }
+computer-agent-engine = { path = "../engine" }
+
+[dev-dependencies]
+tokio = { workspace = true }
