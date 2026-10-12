@@ -3,7 +3,7 @@
 set -euo pipefail
 MAX="${1:---max}"
 if [ "$MAX" = "--max" ]; then MAX="${2:-500}"; else MAX="500"; fi
-OVER=$(find . -path ./_vendor -prune -o -path ./target -prune -o -name '*.rs' -print | xargs wc -l | awk -v m="$MAX" '$1>m {print}')
+OVER=$(find . -path ./_vendor -prune -o -path ./target -prune -o -name '*.rs' -print | xargs wc -l | grep -v ' total$' | awk -v m="$MAX" '$1>m {print}')
 if [ -n "$OVER" ]; then
   echo "BLOAT CHECK FAILED (max $MAX lines):"
   echo "$OVER"
