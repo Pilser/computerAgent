@@ -1,0 +1,22 @@
+[package]
+name = "computer-agent-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+uuid = { workspace = true }
+command-api = { path = "../command-api" }
+computer-agent-agent = { path = "../agent" }
+computer-agent-policy = { path = "../policy" }
+computer-agent-session-store = { path = "../session-store" }
+computer-agent-sys-tools = { path = "../sys-tools" }
+
+[dev-dependencies]
+command-api = { path = "../command-api" }
+computer-agent-policy = { path = "../policy" }
+computer-agent-session-store = { path = "../session-store" }
+serde_json = { workspace = true }
+tokio = { workspace = true }

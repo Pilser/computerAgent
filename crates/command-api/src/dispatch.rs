@@ -16,6 +16,9 @@ use crate::types::{AgentState, Command, CommandResult, MemoryHit, SystemInfoData
 pub async fn dispatch(cmd: Command) -> Result<CommandResult, CommandError> {
     match cmd {
         Command::AgentRun(args) => {
+            // TODO(phase8): route through `computer_agent_engine::Engine::dispatch`
+            // (policy + session persist live there). This stub must NOT grow an
+            // engine dep: engine already deps command-api, so the call would cycle.
             if args.prompt.trim().is_empty() {
                 return Err(CommandError::InvalidArgs {
                     command: "AgentRun".to_string(),

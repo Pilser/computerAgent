@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/agent",
     "crates/command-api",
+    "crates/engine",
     "crates/policy",
     "crates/session-store",
     "crates/sys-tools",

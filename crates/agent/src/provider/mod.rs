@@ -16,4 +16,4 @@ pub mod openrouter;
 pub mod traits;
 
 pub use catalog::{context_window, estimate_cost, lookup, ModelInfo};
-pub use traits::{ChatMessage, ProviderConfig, ProviderKind, StubPlanned, plan};
+pub use traits::{plan, ChatMessage, ProviderConfig, ProviderKind, StubPlanned};
