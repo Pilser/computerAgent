@@ -9,6 +9,7 @@ slint = "1"
 tokio = { workspace = true }
 command-api = { path = "../command-api" }
 computer-agent-engine = { path = "../engine" }
+computer-agent-session-store = { path = "../session-store" }
 
 [build-dependencies]
 slint-build = "1"

@@ -28,6 +28,7 @@ use computer_agent_session_store::session::{MessageRole, Session};
 use super::cancel::CancelMap;
 use super::stream::StreamHub;
 use crate::error::EngineError;
+use crate::threads::{thread_title, DEFAULT_MODEL};
 
 /// Policy tool name gated by [`Engine::handle_agent_run`].
 pub const AGENT_RUN_TOOL: &str = "agent_run";
@@ -39,10 +40,11 @@ const RECAP_SNIP: usize = 200;
 /// Turn orchestrator. Owns policy + store dir + memory + fan-out + cancels.
 pub struct Engine {
     policy: Mutex<PermissionChecker>,
-    store_dir: PathBuf,
+    pub(crate) store_dir: PathBuf,
     memory: Mem,
     events: StreamHub,
-    cancels: CancelMap,
+    pub(crate) cancels: CancelMap,
+    pub(crate) current_model: Mutex<String>,
 }
 
 impl Engine {
@@ -54,6 +56,7 @@ impl Engine {
             memory: Mem::open(),
             events: StreamHub::default(),
             cancels: CancelMap::default(),
+            current_model: Mutex::new(DEFAULT_MODEL.to_string()),
         }
     }
 
@@ -114,6 +117,12 @@ impl Engine {
         }
 
         let mut session = self.open_session(session_id)?;
+        if session.messages.is_empty() {
+            session.name = thread_title(prompt);
+        }
+        if session.model.trim().is_empty() || session.model == "stub" {
+            session.model.clone_from(&self.current_model());
+        }
         let recap = session_recap(&session);
         let registry = ToolRegistry::default_coding();
         let full_prompt = assemble(

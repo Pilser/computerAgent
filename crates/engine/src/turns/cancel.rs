@@ -53,6 +53,17 @@ impl CancelMap {
         self.inner.lock().expect("cancel lock").remove(run_id);
     }
 
+    /// Flip every live token and drop all entries (Stop button path).
+    /// Returns the number of runs that were in flight.
+    pub fn cancel_all(&self) -> usize {
+        let mut inner = self.inner.lock().expect("cancel lock");
+        let live = inner.len();
+        for (_, token) in inner.drain() {
+            token.store(true, Ordering::SeqCst);
+        }
+        live
+    }
+
     /// True while `run_id` has a live (unsettled, uncancelled) entry.
     pub fn contains(&self, run_id: &str) -> bool {
         self.inner.lock().expect("cancel lock").contains_key(run_id)
@@ -99,5 +110,17 @@ mod tests {
         map.finish("r2");
         assert!(!CancelMap::is_cancelled(&token));
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn cancel_all_flips_every_live_token() {
+        let map = CancelMap::new();
+        let a = map.track("a");
+        let b = map.track("b");
+        assert_eq!(map.cancel_all(), 2);
+        assert!(CancelMap::is_cancelled(&a));
+        assert!(CancelMap::is_cancelled(&b));
+        assert!(map.is_empty());
+        assert_eq!(map.cancel_all(), 0);
     }
 }

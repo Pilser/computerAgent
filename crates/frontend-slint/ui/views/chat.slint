@@ -1,0 +1,136 @@
+import { Button, ComboBox, LineEdit, ProgressIndicator, ScrollView, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { WarmTheme } from "../theme.slint";
+import { AppState } from "../store.slint";
+
+// Session view: bubble list (user right / assistant left), per-message token
+// footnote, streaming cursor while `sending`, composer with model picker,
+// context-usage bar + cost label, welcome hero on empty threads.
+export component ChatView inherits Rectangle {
+    background: transparent;
+
+    VerticalBox {
+        padding: 12px;
+        spacing: WarmTheme.gap;
+
+        hero := Rectangle {
+            visible: AppState.messages.length == 0 && !AppState.sending;
+            VerticalBox {
+                alignment: LayoutAlignment.center;
+                spacing: 6px;
+                Text {
+                    text: "computerAgent";
+                    color: WarmTheme.brand;
+                    font-size: 28px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Warm hands, full privileges. Ask, then Enter.";
+                    color: WarmTheme.muted;
+                    font-size: WarmTheme.font-body;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Ctrl+N new · Ctrl+H history · Ctrl+D model · Ctrl+S stop";
+                    color: WarmTheme.muted;
+                    font-size: WarmTheme.font-small;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        feed := ScrollView {
+            vertical-stretch: 1;
+            VerticalBox {
+                spacing: WarmTheme.gap;
+                for msg in AppState.messages: HorizontalBox {
+                    alignment: msg.role == "user" ? LayoutAlignment.end : LayoutAlignment.start;
+                    Rectangle {
+                        background: msg.role == "user" ? WarmTheme.user-bubble : WarmTheme.ai-bubble;
+                        border-radius: WarmTheme.radius;
+                        max-width: 520px;
+                        VerticalBox {
+                            padding: 8px;
+                            spacing: 4px;
+                            Text {
+                                text: msg.text;
+                                color: msg.role == "user" ? WarmTheme.user-text : WarmTheme.text;
+                                font-size: WarmTheme.font-body;
+                                wrap: word-wrap;
+                            }
+                            Text {
+                                text: msg.tokens;
+                                color: msg.role == "user" ? WarmTheme.user-text : WarmTheme.muted;
+                                font-size: WarmTheme.font-small;
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    visible: AppState.sending;
+                    Text {
+                        text: "▍ thinking…";
+                        color: WarmTheme.amber;
+                        font-size: WarmTheme.font-body;
+                    }
+                }
+            }
+        }
+
+        usage := HorizontalBox {
+            spacing: 8px;
+            Text {
+                text: "Context";
+                color: WarmTheme.muted;
+                font-size: WarmTheme.font-small;
+                vertical-alignment: center;
+            }
+            ProgressIndicator {
+                horizontal-stretch: 1;
+                progress: AppState.ctx-window > 0 ? 1.0 * AppState.ctx-used / AppState.ctx-window : 0.0;
+            }
+            Text {
+                text: AppState.ctx-label;
+                color: WarmTheme.muted;
+                font-size: WarmTheme.font-small;
+                vertical-alignment: center;
+            }
+            Text {
+                text: AppState.cost-label;
+                color: WarmTheme.amber;
+                font-size: WarmTheme.font-small;
+                vertical-alignment: center;
+            }
+        }
+
+        composer := HorizontalBox {
+            spacing: WarmTheme.gap;
+            model-picker := ComboBox {
+                max-width: 220px;
+                model: AppState.models;
+                // One-way: user picks fire `selected`; programmatic writes
+                // back only warn (Slint tracks the widget's own choice).
+                // The status bar always shows the effective model.
+                current-value: AppState.current-model;
+                selected(value) => { AppState.set-model(value); }
+            }
+            input := LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "Ask anything… (Enter to send)";
+                text <=> AppState.draft;
+                enabled: !AppState.sending;
+                accepted(text) => { AppState.send-message(text); }
+            }
+            Button {
+                text: "Send";
+                enabled: !AppState.sending && AppState.draft != "";
+                clicked => { AppState.send-message(AppState.draft); }
+            }
+            Button {
+                visible: AppState.sending;
+                text: "Stop";
+                clicked => { AppState.stop-run(); }
+            }
+        }
+    }
+}

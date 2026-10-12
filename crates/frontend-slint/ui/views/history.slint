@@ -1,0 +1,75 @@
+import { Button, LineEdit, ScrollView, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { WarmTheme } from "../theme.slint";
+import { AppState } from "../store.slint";
+
+// History view: searchable thread list. Filtering happens in Rust
+// (`search-changed` sets the already-filtered `threads` model), so no
+// string matching is needed in Slint. Rows select by thread id; the id is
+// shown in full in the tooltip-worthy sub line alongside model/tokens.
+export component HistoryView inherits Rectangle {
+    background: transparent;
+
+    VerticalBox {
+        padding: 8px;
+        spacing: WarmTheme.gap;
+
+        Button {
+            text: "+ New chat  (Ctrl+N)";
+            clicked => { AppState.new-thread(); }
+        }
+
+        search := LineEdit {
+            placeholder-text: "Search threads…";
+            text <=> AppState.search;
+            edited(text) => { AppState.search-changed(text); }
+        }
+
+        list := ScrollView {
+            vertical-stretch: 1;
+            VerticalBox {
+                spacing: 4px;
+                for t in AppState.threads: Rectangle {
+                    background: t.id == AppState.active-id ? WarmTheme.ai-bubble : transparent;
+                    border-radius: 8px;
+                    // Click catcher beneath the content (documented pattern:
+                    // TouchArea fills the parent; the Button above consumes
+                    // its own clicks so open+delete never double-fire).
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { AppState.open-thread(t.id); }
+                    }
+                    HorizontalBox {
+                        padding: 4px;
+                        VerticalBox {
+                            horizontal-stretch: 1;
+                            spacing: 2px;
+                            Text {
+                                text: t.title;
+                                color: WarmTheme.text;
+                                font-size: WarmTheme.font-body;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: t.model + " · " + t.cost + " · " + t.updated-at;
+                                color: WarmTheme.muted;
+                                font-size: WarmTheme.font-small;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: t.stats;
+                                color: WarmTheme.muted;
+                                font-size: WarmTheme.font-small;
+                                overflow: elide;
+                            }
+                        }
+                        Button {
+                            text: "✕";
+                            clicked => { AppState.delete-thread(t.id); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,52 @@
+// Shared chat state: structs + the AppState singleton every view binds to.
+// Rust (`src/window.rs`) owns the data via `global::<AppState>()`; views
+// only render it and forward callbacks. Markdown bodies and the Ask-approval
+// dialog are later milestones (plain text + status line for now).
+
+export struct ChatMsg {
+    role: string,
+    text: string,
+    input-tokens: int,
+    output-tokens: int,
+    // Preformatted footnote ("↑ 12 tok"); numbers are formatted in Rust.
+    tokens: string,
+}
+
+export struct ThreadInfo {
+    id: string,
+    title: string,
+    model: string,
+    input-tokens: int,
+    output-tokens: int,
+    cost-cents: int,
+    cost: string,
+    // Preformatted "↑in ↓out tok · full-id" line (formatted in Rust).
+    stats: string,
+    updated-at: string,
+}
+
+export global AppState {
+    in-out property <[ChatMsg]> messages: [];
+    in-out property <[ThreadInfo]> threads: [];
+    in-out property <[string]> models: [];
+    in-out property <string> active-id: "";
+    in-out property <string> current-model: "";
+    in-out property <string> draft: "";
+    in-out property <string> search: "";
+    in-out property <bool> sending: false;
+    in-out property <bool> show-history: true;
+    in-out property <int> ctx-used: 0;
+    in-out property <int> ctx-window: 128000;
+    in-out property <string> ctx-label: "0 / 128000";
+    in-out property <string> cost-label: "$0.0000";
+    in-out property <string> status-text: "Ready.";
+
+    callback send-message(string);
+    callback new-thread();
+    callback open-thread(string);
+    callback delete-thread(string);
+    callback set-model(string);
+    callback cycle-model();
+    callback stop-run();
+    callback search-changed(string);
+}

@@ -7,7 +7,9 @@
 //! `docs/ARCHITECTURE.md` §2). Policy is enforced here, never in UI.
 
 pub mod error;
+pub mod threads;
 pub mod turns;
 
 pub use error::EngineError;
+pub use threads::{ThreadInfo, ThreadUsage, DEFAULT_MODEL, FALLBACK_CONTEXT_WINDOW, THREAD_LIMIT};
 pub use turns::{CancelMap, CancelToken, Engine, StreamHub, TurnEvent, AGENT_RUN_TOOL};

@@ -9,7 +9,10 @@
 
 pub mod app;
 pub mod bridge;
+pub mod viewmodel;
 pub mod window;
 
 pub use app::App;
 pub use bridge::{callback_to_command, SlintCallback};
+
+slint::include_modules!();

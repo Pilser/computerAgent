@@ -1,25 +1,96 @@
-import { Button, LineEdit, TextEdit, VerticalBox } from "std-widgets.slint";
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { WarmTheme } from "theme.slint";
+import { AppState } from "store.slint";
+import { ChatView } from "views/chat.slint";
+import { HistoryView } from "views/history.slint";
 
+// Warm chat shell: sidebar (threads + theme toggle) beside the session view,
+// status bar underneath. Shortcuts: Ctrl+N new thread, Ctrl+H toggle
+// history, Ctrl+D cycle model, Ctrl+S stop run. (Shortcuts fire when the
+// composer line does not consume the key; buttons always work.)
 export component AppWindow inherits Window {
-    title: "computerAgent";
-    preferred-width: 640px;
-    preferred-height: 480px;
+    title: "computerAgent — warm chat";
+    preferred-width: 1100px;
+    preferred-height: 720px;
+    background: WarmTheme.bg;
 
-    callback send(string);
-    in-out property <string> result: "Ask the assistant, then press Send.";
+    keys := FocusScope {
+        // Documented shortcut pattern: KeyBindings match logical keys, so
+        // Ctrl+letter works even when a LineEdit has focus (it rejects the
+        // combo and the event bubbles up here). Buttons cover the same
+        // actions for discoverability.
+        new-keys := KeyBinding {
+            keys: @keys(Control + N);
+            activated => { AppState.new-thread(); }
+        }
+        history-keys := KeyBinding {
+            keys: @keys(Control + H);
+            activated => { AppState.show-history = !AppState.show-history; }
+        }
+        model-keys := KeyBinding {
+            keys: @keys(Control + D);
+            activated => { AppState.cycle-model(); }
+        }
+        stop-keys := KeyBinding {
+            keys: @keys(Control + S);
+            activated => { AppState.stop-run(); }
+        }
 
-    VerticalBox {
-        input := LineEdit {
-            placeholder-text: "Ask the assistant…";
-        }
-        Button {
-            text: "Send";
-            clicked => { root.send(input.text); }
-        }
-        TextEdit {
-            text: root.result;
-            read-only: true;
-            min-height: 200px;
+        VerticalBox {
+            padding: 0px;
+            spacing: 0px;
+
+            body := HorizontalBox {
+                vertical-stretch: 1;
+                spacing: 0px;
+
+                sidebar := Rectangle {
+                    visible: AppState.show-history;
+                    width: 300px;
+                    background: WarmTheme.surface;
+                    VerticalBox {
+                        padding: 0px;
+                        spacing: 0px;
+                        HistoryView {
+                            vertical-stretch: 1;
+                        }
+                        HorizontalBox {
+                            padding: 8px;
+                            Button {
+                                text: WarmTheme.dark ? "☀ Light" : "☾ Dark";
+                                clicked => { WarmTheme.dark = !WarmTheme.dark; }
+                            }
+                        }
+                    }
+                }
+
+                ChatView {
+                    horizontal-stretch: 1;
+                }
+            }
+
+            status := Rectangle {
+                height: 28px;
+                background: WarmTheme.surface;
+                HorizontalBox {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    Text {
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                        text: AppState.status-text;
+                        color: WarmTheme.muted;
+                        font-size: WarmTheme.font-small;
+                        overflow: elide;
+                    }
+                    Text {
+                        vertical-alignment: center;
+                        text: AppState.current-model;
+                        color: WarmTheme.brand;
+                        font-size: WarmTheme.font-small;
+                    }
+                }
+            }
         }
     }
 }
