@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 /// Every failure a [`crate::Command`] can report to a frontend.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error)]
 pub enum CommandError {
     /// Caller-supplied args failed validation.
     #[error("invalid args for {command}: {reason}")]
