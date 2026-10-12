@@ -4,6 +4,12 @@ import { AppState } from "store.slint";
 import { ChatView } from "views/chat.slint";
 import { HistoryView } from "views/history.slint";
 
+// Re-export for Rust (`include_modules!` only publishes what the main file
+// re-exports; without these the generated `crate::{AppState, ...}` imports
+// fail and struct aliases warn as deprecated).
+export { AppState, ChatMsg, ThreadInfo } from "store.slint";
+export { WarmTheme } from "theme.slint";
+
 // Warm chat shell: sidebar (threads + theme toggle) beside the session view,
 // status bar underneath. Shortcuts: Ctrl+N new thread, Ctrl+H toggle
 // history, Ctrl+D cycle model, Ctrl+S stop run. (Shortcuts fire when the

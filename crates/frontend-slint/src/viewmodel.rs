@@ -67,7 +67,7 @@ pub fn str_vec(items: Vec<String>) -> ModelRc<SharedString> {
 }
 
 /// Slint array model from a Rust vec.
-pub fn vecmodel<T: 'static>(items: Vec<T>) -> ModelRc<T> {
+pub fn vecmodel<T: 'static + Clone>(items: Vec<T>) -> ModelRc<T> {
     Rc::new(VecModel::from(items)).into()
 }
 
