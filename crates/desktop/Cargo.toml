@@ -1,0 +1,13 @@
+[package]
+name = "computer-agent-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "computer-agent"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+computer-agent-engine = { path = "../engine" }
+computer-agent-frontend-slint = { path = "../frontend-slint" }

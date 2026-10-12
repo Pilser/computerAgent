@@ -1,11 +1,14 @@
 // Shared chat state: structs + the AppState singleton every view binds to.
 // Rust (`src/window.rs`) owns the data via `global::<AppState>()`; views
-// only render it and forward callbacks. Markdown bodies and the Ask-approval
-// dialog are later milestones (plain text + status line for now).
+// only render it and forward callbacks. Message bodies arrive as parsed
+// markdown blocks (`MdBlock`, built by `src/markdown_view.rs`).
+
+import { MdBlock } from "views/md.slint";
 
 export struct ChatMsg {
     role: string,
     text: string,
+    blocks: [MdBlock],
     input-tokens: int,
     output-tokens: int,
     // Preformatted footnote ("↑ 12 tok"); numbers are formatted in Rust.

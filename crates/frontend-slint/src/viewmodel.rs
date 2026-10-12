@@ -9,14 +9,17 @@ use computer_agent_engine::ThreadInfo as EngineThread;
 use computer_agent_session_store::session::{MessageRole, Session};
 use slint::{ModelRc, SharedString, VecModel};
 
+use crate::markdown_view::message_blocks;
 use crate::{ChatMsg, ThreadInfo};
 
 /// Fresh user bubble with an estimated-token footnote.
 pub fn user_msg(prompt: &str) -> ChatMsg {
     let est = Session::estimate_tokens(prompt);
+    let (blocks, _) = message_blocks(prompt);
     ChatMsg {
         role: "user".into(),
         text: prompt.into(),
+        blocks: vecmodel(blocks),
         input_tokens: clamp_tokens(est),
         output_tokens: 0,
         tokens: format!("↑ {est} tok").into(),
@@ -35,9 +38,11 @@ pub fn ui_messages(session: &Session) -> Vec<ChatMsg> {
                 MessageRole::Assistant => ("assistant", 0, est, format!("↓ {est} tok")),
                 _ => ("tool", est, 0, format!("⚙ {est} tok")),
             };
+            let (blocks, _) = message_blocks(&m.content);
             ChatMsg {
                 role: role.into(),
                 text: m.content.clone().into(),
+                blocks: vecmodel(blocks),
                 input_tokens,
                 output_tokens,
                 tokens: tokens.into(),

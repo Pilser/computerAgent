@@ -1,0 +1,122 @@
+import { WarmTheme } from "../theme.slint";
+
+// One parsed markdown unit from Rust (`markdown_view::message_blocks`).
+// `kind` is one of: h, p, code, mermaid, list, quote, table-head,
+// table-row. `img` carries the pre-rendered mermaid SVG image.
+export struct MdBlock {
+    kind: string,
+    text: string,
+    lang: string,
+    level: int,
+    img: image,
+}
+
+// Markdown body: one styled row per block, WarmTheme throughout.
+// `inverted` renders for user bubbles (light text on terracotta).
+// `copy-code` fires when the copy affordance is tapped (unhandled = no-op).
+export component MdView inherits VerticalBox {
+    in property <[MdBlock]> blocks;
+    in property <bool> inverted;
+    callback copy-code(string);
+
+    padding: 0px;
+    spacing: 4px;
+
+    for b in blocks: Rectangle {
+        if b.kind == "h" : Text {
+            text: b.text;
+            color: inverted ? WarmTheme.user-text : WarmTheme.brand;
+            font-size: b.level == 1 ? 20px : (b.level == 2 ? 18px : 16px);
+            font-weight: 700;
+            wrap: word-wrap;
+        }
+        if b.kind == "p" : Text {
+            text: b.text;
+            color: inverted ? WarmTheme.user-text : WarmTheme.text;
+            font-size: WarmTheme.font-body;
+            wrap: word-wrap;
+        }
+        if b.kind == "code" : Rectangle {
+            background: inverted ? transparent : WarmTheme.surface;
+            border-radius: 6px;
+            VerticalBox {
+                padding: 6px;
+                spacing: 4px;
+                HorizontalBox {
+                    padding: 0px;
+                    spacing: 6px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: b.lang;
+                        color: WarmTheme.muted;
+                        font-size: WarmTheme.font-small;
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.copy-code(b.text); }
+                        Text {
+                            text: "⧉ copy";
+                            color: WarmTheme.brand;
+                            font-size: WarmTheme.font-small;
+                        }
+                    }
+                }
+                Text {
+                    text: b.text;
+                    color: inverted ? WarmTheme.user-text : WarmTheme.text;
+                    font-size: WarmTheme.font-small;
+                    font-family: "monospace";
+                    wrap: word-wrap;
+                }
+            }
+        }
+        if b.kind == "mermaid" : Image {
+            source: b.img;
+            width: 100%;
+            height: 220px;
+            image-fit: contain;
+        }
+        if b.kind == "list" : Text {
+            text: b.text;
+            color: inverted ? WarmTheme.user-text : WarmTheme.text;
+            font-size: WarmTheme.font-body;
+            wrap: word-wrap;
+        }
+        if b.kind == "quote" : HorizontalBox {
+            padding: 0px;
+            spacing: 6px;
+            Rectangle {
+                width: 3px;
+                background: WarmTheme.amber;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: b.text;
+                color: inverted ? WarmTheme.user-text : WarmTheme.muted;
+                font-size: WarmTheme.font-body;
+                wrap: word-wrap;
+            }
+        }
+        if b.kind == "table-head" : VerticalBox {
+            padding: 0px;
+            spacing: 2px;
+            Text {
+                text: b.text;
+                color: inverted ? WarmTheme.user-text : WarmTheme.text;
+                font-size: WarmTheme.font-small;
+                font-weight: 700;
+                wrap: word-wrap;
+            }
+            Rectangle {
+                height: 1px;
+                background: WarmTheme.border;
+            }
+        }
+        if b.kind == "table-row" : Text {
+            text: b.text;
+            color: inverted ? WarmTheme.user-text : WarmTheme.text;
+            font-size: WarmTheme.font-small;
+            wrap: word-wrap;
+        }
+    }
+}

@@ -1,6 +1,7 @@
 import { Button, ComboBox, LineEdit, ProgressIndicator, ScrollView, HorizontalBox, VerticalBox } from "std-widgets.slint";
 import { WarmTheme } from "../theme.slint";
 import { AppState } from "../store.slint";
+import { MdView } from "md.slint";
 
 // Session view: bubble list (user right / assistant left), per-message token
 // footnote, streaming cursor while `sending`, composer with model picker,
@@ -52,11 +53,9 @@ export component ChatView inherits Rectangle {
                         VerticalBox {
                             padding: 8px;
                             spacing: 4px;
-                            Text {
-                                text: msg.text;
-                                color: msg.role == "user" ? WarmTheme.user-text : WarmTheme.text;
-                                font-size: WarmTheme.font-body;
-                                wrap: word-wrap;
+                            MdView {
+                                blocks: msg.blocks;
+                                inverted: msg.role == "user";
                             }
                             Text {
                                 text: msg.tokens;

@@ -28,5 +28,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: computerAgent-${{ github.ref_name }}
-          path: target/release/computerAgent*
+          path: |
+            target/release/computerAgent*
+            target/release/computer-agent*
           if-no-files-found: warn

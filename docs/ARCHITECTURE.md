@@ -224,3 +224,7 @@ UI tools: frontends expose NO tools directly. Approval dialogs (`Ask`) come from
 9. `frontend-slint` + `frontend-tauri` thin shells calling `dispatch(SystemInfo, AgentRun)`.
 10. Strip audit: confirm no `ui/`, `setup/`, `startup.rs`, `print.rs`, `cli.rs` ported; remove `_vendor` after parity.
 11. Real backends: LLM HTTP in `agent/provider` (reqwest), streaming runner, `edit/grep/find/todo` tools, Slint views polish, Tauri system-deps CI job (`--features tauri-app`), fork-side strip into `Pilser/embedded-agent` as git dependency.
+
+## 8. Chat milestone (markdown + mermaid + desktop)
+
+Assistant bubbles render parsed markdown: `pulldown-cmark` splits message text into `Block`s (headings, paragraphs, code, lists, quotes, tables) in `frontend-slint/src/markdown/blocks.rs`; fenced ```mermaid blocks render to SVG bytes via `merman` (`src/markdown/diagram.rs`, hash-cached, `None` falls back to a code block) and reach `ui/views/md.slint` as `slint::Image`s loaded with `Image::load_from_svg_data`. The `merman` default features bundle the ELK layout engine, whose EPL-2.0 license notice and source provenance are inherited by distributed artifacts. The `computer-agent` desktop binary (`crates/desktop/`, package `computer-agent-desktop`) builds one shared `Engine` and runs the Slint window loop.

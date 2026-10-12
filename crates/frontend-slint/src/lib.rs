@@ -9,6 +9,8 @@
 
 pub mod app;
 pub mod bridge;
+pub mod markdown;
+pub mod markdown_view;
 pub mod viewmodel;
 pub mod window;
 
