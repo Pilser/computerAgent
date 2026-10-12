@@ -9,6 +9,9 @@
 //! and `memory_tools` (phase 4 bridge comes with engine wiring later).
 
 pub mod error;
+pub mod prompt;
+pub mod provider;
+pub mod runner;
 pub mod tools;
 
 pub use error::{AgentError, ToolError};

@@ -7,6 +7,8 @@ pub enum AgentError {
     Tool(#[from] ToolError),
     #[error("policy error: {0}")]
     Policy(String),
+    #[error("provider error: {0}")]
+    Provider(String),
     #[error("runner error: {0}")]
     Runner(String),
 }
