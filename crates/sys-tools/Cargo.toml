@@ -1,0 +1,9 @@
+[package]
+name = "computer-agent-sys-tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "process"] }

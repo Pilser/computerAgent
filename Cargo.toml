@@ -4,6 +4,7 @@ members = [
     "crates/command-api",
     "crates/policy",
     "crates/session-store",
+    "crates/sys-tools",
 ]
 
 [workspace.dependencies]
