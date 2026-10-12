@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: fmt
+        run: cargo fmt --check
+      - name: check (capped jobs, default disk target dir)
+        run: cargo check --workspace --tests --jobs 2
+      - name: test (capped jobs)
+        run: cargo test --workspace --jobs 2 -- --test-threads=2
+      - name: bloat gate
+        run: ./scripts/check-bloat.sh --max 500

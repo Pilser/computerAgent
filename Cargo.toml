@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/command-api",
+]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt"] }
+
+# Release tuning lives here so that .github/workflows/release.yml is the
+# ONLY place that ever triggers a --release build (see AGENTS.md §3).
+# Local runs must stay on check/test via scripts/ram-check.sh + ram-test.sh.
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

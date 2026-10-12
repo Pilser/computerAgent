@@ -1,0 +1,26 @@
+name: release
+
+# Skeleton (phase 1): the ONLY place that may run `cargo build --release`.
+# Never build releases locally or on PR (see AGENTS.md §1, §3).
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Capped for the small CI runner; release profile (lto=thin,
+      # strip=true, codegen-units=1) comes from root Cargo.toml.
+      - name: build release
+        run: cargo build --release --jobs 2
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: computerAgent-${{ github.ref_name }}
+          path: target/release/computerAgent*
+          if-no-files-found: warn
