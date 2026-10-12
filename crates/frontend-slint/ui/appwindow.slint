@@ -4,17 +4,12 @@ import { AppState } from "store.slint";
 import { ChatView } from "views/chat.slint";
 import { HistoryView } from "views/history.slint";
 
-// Re-export the cross-file API at the crate root: the Rust generator only
-// makes names public that the MAIN .slint file exports (globals, structs,
-// components alike). Imports above keep the short names usable below.
+// Re-export the cross-file API from the main file: the Rust generator only
+// publishes names the main file exports (without these, `crate::{AppState,
+// ...}` imports fail and struct aliases warn as deprecated). The imports
+// above keep the short names usable below.
 export { WarmTheme } from "theme.slint";
 export { AppState, ChatMsg, ThreadInfo } from "store.slint";
-
-// Re-export for Rust (`include_modules!` only publishes what the main file
-// re-exports; without these the generated `crate::{AppState, ...}` imports
-// fail and struct aliases warn as deprecated).
-export { AppState, ChatMsg, ThreadInfo } from "store.slint";
-export { WarmTheme } from "theme.slint";
 
 // Warm chat shell: sidebar (threads + theme toggle) beside the session view,
 // status bar underneath. Shortcuts: Ctrl+N new thread, Ctrl+H toggle
