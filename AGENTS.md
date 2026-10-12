@@ -40,11 +40,12 @@ RAM guardrails (wrappers enforce, humans too):
 - Pre-approved overflow dir `/tmp/opencode/ca-target` (disk, slow) is LAST resort and ONLY if user explicitly says `allow-disk-target`. Even then: `--jobs 1`, one crate at a time.
 - If OOM risk (compile stalls, swap climbing per `free`): Ctrl-C immediately, report, defer to CI.
 
-## 3. Binaries ONLY in CI
+## 3. Binaries ONLY in CI (release-only, cached)
 
-- `.github/workflows/ci.yml`: `cargo check` + `cargo test` + `check-bloat.sh` on PR. Linux runner, default disk target dir, `--jobs 2`.
-- `.github/workflows/release.yml`: the ONLY place that may run `cargo build --release`. Capped: `--jobs 2`, `codegen-units=1`, `lto=thin`, `strip=true`. Artifacts uploaded, never built locally.
-- Subagents: NEVER add a workflow that builds releases on PR, NEVER raise job counts to "speed up CI" without a RAM note.
+- `.github/workflows/release.yml` is the ONLY CI workflow: `cargo build --release --jobs 2` on tags (`v*`) or manual dispatch. No check/test jobs in CI — this machine does those via §2.
+- Cache: `Swatinem/rust-cache` restores `~/.cargo` + `target/` before the build and saves after, so each release reuses the previous build cache.
+- Release profile caps (root `Cargo.toml`): `lto=thin`, `strip=true`, `codegen-units=1`. Artifacts uploaded, never built locally.
+- Subagents: NEVER add check/test/build workflows, NEVER raise job counts without a RAM note.
 
 ## 4. How subagents implement (phase by phase, sequential)
 

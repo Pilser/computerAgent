@@ -1,7 +1,9 @@
 name: release
 
-# Skeleton (phase 1): the ONLY place that may run `cargo build --release`.
+# The ONLY place that may run `cargo build --release`.
 # Never build releases locally or on PR (see AGENTS.md §1, §3).
+# Release-only: no check/test jobs here. Build cache is restored
+# before the build and saved after, so the next run reuses it.
 
 on:
   workflow_dispatch:
@@ -14,9 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      # Capped for the small CI runner; release profile (lto=thin,
-      # strip=true, codegen-units=1) comes from root Cargo.toml.
-      - name: build release
+      - name: restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: computerAgent-release
+      - name: build release (capped for small runner)
         run: cargo build --release --jobs 2
       - name: upload artifacts
         uses: actions/upload-artifact@v4
