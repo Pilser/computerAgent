@@ -78,6 +78,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "computer-agent-agent"
+version = "0.1.0"
+dependencies = [
+ "computer-agent-policy",
+ "computer-agent-sys-tools",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "computer-agent-policy"
 version = "0.1.0"
 dependencies = [
