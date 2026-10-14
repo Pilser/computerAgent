@@ -1,6 +1,6 @@
 //! `eframe::App`: owns engine + state + shell + pump.
 //!
-//! `update()` = drain pump → fold events into state → `shell.run()`.
+//! `ui()` = drain pump → fold events into state → `shell.run()`.
 //! Repaint is input-driven except while `sending`, when streamed chunks
 //! force it.
 
@@ -48,7 +48,7 @@ impl Default for ComputerAgentApp {
 }
 
 impl eframe::App for ComputerAgentApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         for event in self.pump.drain() {
             match event {
                 PumpEvent::Chunk(chunk) => {
@@ -69,8 +69,8 @@ impl eframe::App for ComputerAgentApp {
             }
         }
         if self.state.chat.sending {
-            ctx.request_repaint();
+            ui.ctx().request_repaint();
         }
-        self.shell.run(ctx, &mut self.state);
+        self.shell.run(ui, &mut self.state);
     }
 }
