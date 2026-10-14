@@ -36,7 +36,7 @@ export component MdView inherits VerticalBox {
             wrap: word-wrap;
         }
         if b.kind == "p" : StyledText {
-            text: @markdown(b.text);
+            text: @markdown("\{b.text}");
             default-color: inverted ? WarmTheme.user-text : WarmTheme.text;
             default-font-size: WarmTheme.font-body;
             link-color: WarmTheme.brand;
@@ -83,7 +83,7 @@ export component MdView inherits VerticalBox {
             image-fit: contain;
         }
         if b.kind == "list" : StyledText {
-            text: @markdown(b.text);
+            text: @markdown("\{b.text}");
             default-color: inverted ? WarmTheme.user-text : WarmTheme.text;
             default-font-size: WarmTheme.font-body;
             link-color: WarmTheme.brand;
