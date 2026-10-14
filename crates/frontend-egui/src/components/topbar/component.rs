@@ -89,7 +89,8 @@ impl Component for Topbar {
             ui.label(
                 egui::RichText::new(state.usage.cost_label())
                     .strong()
-                    .small(),
+                    .small()
+                    .color(ink),
             );
         });
     }
