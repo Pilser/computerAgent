@@ -1,2 +1,5 @@
 /target/
 **/target/
+# CI-built desktop binary (downloaded, never committed)
+/deploy/computer-agent
+/deploy/bundle.zip
