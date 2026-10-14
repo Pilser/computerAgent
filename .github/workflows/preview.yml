@@ -53,7 +53,7 @@ jobs:
       - name: system deps (eframe link + xvfb + software GL/Vulkan + capture)
         run: >
           sudo apt-get update &&
-          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-0 libssl-dev
           xvfb mesa-vulkan-drivers libgl1-mesa-dri scrot
       - name: restore build cache
         uses: Swatinem/rust-cache@v2
@@ -85,9 +85,22 @@ jobs:
           cp /tmp/shot-seeded.png preview-out/egui-seeded.png 2>/dev/null || true
           cp /tmp/shot-dark.png preview-out/egui-dark.png 2>/dev/null || true
           ls -la preview-out/ || true
+          # A black 1280x800 capture compresses to ~3KB; a real painted
+          # window is 50KB+. Anything smaller (or missing) means the app
+          # never painted, so drop it and let the fallback below run.
+          good=0
+          for f in preview-out/egui-fresh.png preview-out/egui-seeded.png preview-out/egui-dark.png; do
+            if [ -f "$f" ] && [ "$(stat -c%s "$f")" -gt 20000 ]; then
+              good=$((good + 1))
+            else
+              echo "REJECTED $f (missing or too small)"
+              rm -f "$f"
+            fi
+          done
+          echo "good captures: $good/3"
       - name: fallback to kittest snapshots when xvfb capture failed
         run: |
-          if [ ! -s preview-out/egui-fresh.png ] || [ ! -s preview-out/egui-seeded.png ] || [ ! -s preview-out/egui-dark.png ]; then
+          if [ "$(ls preview-out/*.png 2>/dev/null | wc -l)" -lt 3 ]; then
             echo "xvfb capture failed; generating egui_kittest snapshots instead"
             UPDATE_SNAPSHOTS=true cargo test -p computer-agent-frontend-egui --jobs 2 -- --test-threads=2
             cp crates/frontend-egui/tests/snapshots/*.png preview-out/

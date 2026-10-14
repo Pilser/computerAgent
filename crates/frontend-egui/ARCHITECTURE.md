@@ -198,3 +198,8 @@ under `xvfb` three ways (fresh `CA_DATA_DIR`, seeded fixture thread
 from `tests/fixtures/seeded`, seeded + dark), captures each window with
 `scrot`, and uploads the PNGs — falling back to `egui_kittest`
 `UPDATE_SNAPSHOTS` PNGs only if the xvfb capture comes back empty.
+Lesson from v0.4.4: the app panicked at boot on the runner
+(`libxkbcommon-x11.so could not be loaded`), so `scrot` captured three
+identical 3KB all-black PNGs; the job now installs
+`libxkbcommon-x11-0` (preview-only apt) and rejects any capture under
+20KB before accepting the xvfb path.
