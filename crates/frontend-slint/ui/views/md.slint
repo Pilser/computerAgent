@@ -29,7 +29,6 @@ export component MdView inherits VerticalBox {
         // lists); headings/code/mermaid/quote/tables stay custom below
         // because StyledText does not support them.
         if b.kind == "h" : Text {
-        if b.kind == "h" : Text {
             text: b.text;
             color: inverted ? WarmTheme.user-text : WarmTheme.brand;
             font-size: b.level == 1 ? 20px : (b.level == 2 ? 18px : 16px);
