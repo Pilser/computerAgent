@@ -22,8 +22,13 @@ export component MdView inherits VerticalBox {
 
     padding: 0px;
     spacing: 4px;
+    alignment: LayoutAlignment.start;
 
     for b in blocks: Rectangle {
+        // Native CommonMark inline rendering (bold, links, inline code,
+        // lists); headings/code/mermaid/quote/tables stay custom below
+        // because StyledText does not support them.
+        if b.kind == "h" : Text {
         if b.kind == "h" : Text {
             text: b.text;
             color: inverted ? WarmTheme.user-text : WarmTheme.brand;
@@ -31,11 +36,12 @@ export component MdView inherits VerticalBox {
             font-weight: 700;
             wrap: word-wrap;
         }
-        if b.kind == "p" : Text {
+        if b.kind == "p" : StyledText {
             text: b.text;
-            color: inverted ? WarmTheme.user-text : WarmTheme.text;
-            font-size: WarmTheme.font-body;
-            wrap: word-wrap;
+            default-color: inverted ? WarmTheme.user-text : WarmTheme.text;
+            default-font-size: WarmTheme.font-body;
+            link-color: WarmTheme.brand;
+            link-clicked(link) => { root.copy-code(link); }
         }
         if b.kind == "code" : Rectangle {
             background: inverted ? transparent : WarmTheme.surface;
@@ -77,11 +83,12 @@ export component MdView inherits VerticalBox {
             height: 220px;
             image-fit: contain;
         }
-        if b.kind == "list" : Text {
+        if b.kind == "list" : StyledText {
             text: b.text;
-            color: inverted ? WarmTheme.user-text : WarmTheme.text;
-            font-size: WarmTheme.font-body;
-            wrap: word-wrap;
+            default-color: inverted ? WarmTheme.user-text : WarmTheme.text;
+            default-font-size: WarmTheme.font-body;
+            link-color: WarmTheme.brand;
+            link-clicked(link) => { root.copy-code(link); }
         }
         if b.kind == "quote" : HorizontalBox {
             padding: 0px;

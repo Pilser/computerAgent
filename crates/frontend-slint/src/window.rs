@@ -31,7 +31,7 @@ pub fn run_window(engine: Arc<Engine>) -> anyhow::Result<()> {
         refresh_threads(&ui, &engine);
         match engine.list_threads(1).first() {
             Some(recent) => open_thread(&ui, &engine, &recent.id.clone()),
-            None => state.set_status_text("New chat to begin.".into()),
+            None => set_status(&ui, true, "New chat to begin.".to_string()),
         }
     }
     wire(&ui, &engine);
@@ -94,7 +94,7 @@ fn on_send(weak: &Weak<AppWindow>, engine: &Arc<Engine>, text: SharedString) {
     let tid = ensure_thread(&ui, engine);
     let Some(tid) = tid else { return };
     push_local(&ui, user_msg(&prompt));
-    set_sending(&ui, true, "Thinking…");
+    set_sending(&ui, true, true, "Thinking…");
     let (weak, engine) = (weak.clone(), engine.clone());
     std::thread::spawn(move || {
         let outcome = run_turn(&engine, &tid, &prompt);
@@ -103,9 +103,9 @@ fn on_send(weak: &Weak<AppWindow>, engine: &Arc<Engine>, text: SharedString) {
                 match outcome {
                     Ok(chunks) => {
                         open_thread(&ui, &engine, &tid);
-                        set_sending(&ui, false, &format!("Done · {chunks} streamed."));
+                        set_sending(&ui, false, true, &format!("Done · {chunks} streamed."));
                     }
-                    Err(err) => set_sending(&ui, false, &format!("error: {err}")),
+                    Err(err) => set_sending(&ui, false, false, &format!("error: {err}")),
                 }
             }
         });
@@ -127,7 +127,7 @@ fn ensure_thread(ui: &AppWindow, engine: &Engine) -> Option<String> {
             Some(t.id)
         }
         Err(err) => {
-            state.set_status_text(format!("error: new thread: {err:#}").into());
+            set_status(&ui, false, format!("error: new thread: {err:#}"));
             None
         }
     }
@@ -160,9 +160,9 @@ fn on_new(ui: &AppWindow, engine: &Engine) {
             state.set_search(SharedString::new());
             refresh_threads(ui, engine);
             open_thread(ui, engine, &t.id);
-            state.set_status_text("New thread.".into());
+            set_status(ui, true, "New thread.".to_string());
         }
-        Err(err) => state.set_status_text(format!("error: new thread: {err:#}").into()),
+        Err(err) => set_status(ui, false, format!("error: new thread: {err:#}")),
     }
 }
 
@@ -180,7 +180,7 @@ fn on_delete(ui: &AppWindow, engine: &Engine, id: &str) {
                 }
             }
         }
-        Err(err) => state.set_status_text(format!("error: delete: {err:#}").into()),
+        Err(err) => set_status(ui, false, format!("error: delete: {err:#}")),
     }
 }
 
@@ -189,9 +189,9 @@ fn on_set_model(ui: &AppWindow, engine: &Engine, id: &str) {
     match engine.set_model(id) {
         Ok(()) => {
             state.set_current_model(engine.current_model().into());
-            state.set_status_text(format!("Model {}.", engine.current_model()).into());
+            set_status(ui, true, format!("Model {}.", engine.current_model()));
         }
-        Err(err) => state.set_status_text(format!("error: {err:#}").into()),
+        Err(err) => set_status(ui, false, format!("error: {err:#}")),
     }
 }
 
@@ -209,8 +209,7 @@ fn on_cycle_model(ui: &AppWindow, engine: &Engine) {
 
 fn on_stop(ui: &AppWindow, engine: &Engine) {
     let live = engine.cancel_all();
-    ui.global::<AppState>()
-        .set_status_text(format!("Stop requested · {live} in flight.").into());
+    set_status(ui, true, format!("Stop requested · {live} in flight."));
 }
 
 /// Reload the sidebar, honoring the search box (Rust-side filter: Slint has
@@ -240,17 +239,18 @@ fn open_thread(ui: &AppWindow, engine: &Engine, id: &str) {
             state.set_messages(vecmodel(ui_messages(&session)));
             apply_usage(ui, engine, id);
             let title: String = session.name.chars().take(40).collect();
-            state.set_status_text(
+            set_status(
+                ui,
+                true,
                 format!(
                     "{} · {} msgs · {}",
                     title,
                     session.messages.len(),
                     session.model
-                )
-                .into(),
+                ),
             );
         }
-        None => state.set_status_text("Thread not found.".into()),
+        None => set_status(ui, false, "Thread not found.".to_string()),
     }
 }
 
@@ -263,7 +263,7 @@ fn reset_view(ui: &AppWindow, status: &str) {
     state.set_ctx_window(128_000);
     state.set_ctx_label("0 / 128000".into());
     state.set_cost_label("$0.00".into());
-    state.set_status_text(status.into());
+    set_status(ui, true, status.to_string());
 }
 
 /// Context bar: per-thread usage + total spend.
@@ -293,8 +293,16 @@ fn push_local(ui: &AppWindow, msg: ChatMsg) {
     state.set_messages(vecmodel(msgs));
 }
 
-fn set_sending(ui: &AppWindow, sending: bool, status: &str) {
+fn set_sending(ui: &AppWindow, sending: bool, ok: bool, status: &str) {
     let state = ui.global::<AppState>();
     state.set_sending(sending);
+    state.set_status_ok(ok);
     state.set_status_text(status.into());
+}
+
+/// Set status text + banner flag together (banner shows on `!ok`).
+fn set_status(ui: &AppWindow, ok: bool, text: String) {
+    let state = ui.global::<AppState>();
+    state.set_status_ok(ok);
+    state.set_status_text(text.into());
 }

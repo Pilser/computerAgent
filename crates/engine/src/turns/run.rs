@@ -133,7 +133,13 @@ impl Engine {
 
         let run_id = uuid::Uuid::new_v4().to_string();
         self.cancels.track(&run_id);
-        let req = TurnRequest::new(full_prompt, 4).with_summary(recap);
+        // NOTE: the stub echoes TurnRequest.prompt as its reply, so it must
+        // receive the USER text only. The assembled system+memory+recap prompt
+        // (`_full_prompt`) is built for the real LLM milestone and must never
+        // be persisted as chat content (it once leaked into the UI as a wall
+        // of instructions). Real runner takes `_full_prompt` back here.
+        let _full_prompt = full_prompt;
+        let req = TurnRequest::new(prompt.to_string(), 4).with_summary(recap);
         let mut response = String::new();
         for event in run_turn_stub(&req) {
             if let TurnEvent::Done { response: done } = &event {

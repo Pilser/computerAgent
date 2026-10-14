@@ -43,15 +43,20 @@ export component ChatView inherits Rectangle {
         feed := ScrollView {
             vertical-stretch: 1;
             VerticalBox {
+                alignment: LayoutAlignment.start;
                 spacing: WarmTheme.gap;
                 for msg in AppState.messages: HorizontalBox {
                     alignment: msg.role == "user" ? LayoutAlignment.end : LayoutAlignment.start;
+                    // Deterministic column width: wrapped Text measures its
+                    // height against this, so rows stack instead of stretching
+                    // or overflowing each other.
                     Rectangle {
+                        width: msg.role == "user" ? Math.min(560px, root.width * 0.72) : Math.min(780px, root.width * 0.9);
                         background: msg.role == "user" ? WarmTheme.user-bubble : WarmTheme.ai-bubble;
                         border-radius: WarmTheme.radius;
-                        max-width: 520px;
                         VerticalBox {
-                            padding: 8px;
+                            alignment: LayoutAlignment.start;
+                            padding: 10px;
                             spacing: 4px;
                             MdView {
                                 blocks: msg.blocks;
@@ -102,6 +107,34 @@ export component ChatView inherits Rectangle {
             }
         }
 
+        // Run banner: errors surface here, large, instead of hiding in
+        // the status bar. Visible only for failed runs.
+        banner := Rectangle {
+            visible: !AppState.status-ok;
+            background: #F7E3DF;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: WarmTheme.danger;
+            HorizontalBox {
+                padding: 10px;
+                spacing: 8px;
+                Text {
+                    text: "⚠";
+                    color: WarmTheme.danger;
+                    font-size: 16px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: AppState.status-text;
+                    color: WarmTheme.danger;
+                    font-size: WarmTheme.font-small;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
         composer := HorizontalBox {
             spacing: WarmTheme.gap;
             model-picker := ComboBox {
@@ -113,12 +146,24 @@ export component ChatView inherits Rectangle {
                 current-value: AppState.current-model;
                 selected(value) => { AppState.set-model(value); }
             }
-            input := LineEdit {
+            input := TextInput {
                 horizontal-stretch: 1;
-                placeholder-text: "Ask anything… (Enter to send)";
+                min-height: 84px;
+                font-size: WarmTheme.font-body;
+                color: WarmTheme.text;
+                wrap: word-wrap;
                 text <=> AppState.draft;
                 enabled: !AppState.sending;
-                accepted(text) => { AppState.send-message(text); }
+                key-pressed(event) => {
+                    // Enter sends; Shift+Enter keeps a newline.
+                    if (event.text == Key.Return && !event.modifiers.shift) {
+                        if (AppState.draft != "") {
+                            AppState.send-message(AppState.draft);
+                        }
+                        return accept;
+                    }
+                    return reject;
+                }
             }
             // Primary send: custom so it stays readable on paper in both
             // schemes (std Button follows Palette and washes out).

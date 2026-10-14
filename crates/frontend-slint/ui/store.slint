@@ -43,6 +43,8 @@ export global AppState {
     in-out property <string> ctx-label: "0 / 128000";
     in-out property <string> cost-label: "$0.0000";
     in-out property <string> status-text: "Ready.";
+    // False after a failed run: the chat banner shows status-text large.
+    in-out property <bool> status-ok: true;
 
     callback send-message(string);
     callback new-thread();

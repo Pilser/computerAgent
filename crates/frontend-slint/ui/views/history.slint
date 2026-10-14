@@ -27,6 +27,7 @@ export component HistoryView inherits Rectangle {
         list := ScrollView {
             vertical-stretch: 1;
             VerticalBox {
+                alignment: LayoutAlignment.start;
                 spacing: 4px;
                 for t in AppState.threads: VerticalBox {
                     spacing: 0px;
