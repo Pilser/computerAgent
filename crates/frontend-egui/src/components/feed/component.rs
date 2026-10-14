@@ -91,8 +91,8 @@ impl Component for Feed {
                 if visible.is_empty() {
                     ui.label(egui::RichText::new("No messages yet — say hi below.").weak());
                 }
-                for (idx, msg) in &visible {
-                    show_message_bubble(ui, idx, msg, &mut self.md_cache, overlays, state);
+                for (idx, msg) in visible {
+                    show_message_bubble(ui, idx, &msg, &mut self.md_cache, overlays, state);
                     ui.add_space(8.0);
                 }
             });
