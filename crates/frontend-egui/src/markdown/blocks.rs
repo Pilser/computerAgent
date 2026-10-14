@@ -151,7 +151,16 @@ pub fn parse_markdown(text: &str) -> Vec<Block> {
                 }
             }
             Event::End(TagEnd::TableHead) => {
-                if let Some(Frame::Table { in_head, .. }) = stack.last_mut() {
+                // pulldown-cmark 0.13 puts TableCells directly under
+                // TableHead (no TableRow), so flush a pending row here;
+                // versions that do emit the row leave `row` empty (no-op).
+                if let Some(Frame::Table {
+                    head, row, in_head, ..
+                }) = stack.last_mut()
+                {
+                    if !row.is_empty() {
+                        *head = std::mem::take(row);
+                    }
                     *in_head = false;
                 }
             }

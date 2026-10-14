@@ -70,15 +70,15 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c '
             rm -rf /tmp/egui-fresh; mkdir -p /tmp/egui-fresh
             CA_DATA_DIR=/tmp/egui-fresh ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
-            sleep 15
+            sleep 25
             scrot /tmp/shot-fresh.png
             kill $(cat /tmp/egui-app.pid); wait 2>/dev/null; sleep 1
             CA_DATA_DIR=/tmp/egui-seed ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
-            sleep 15
+            sleep 25
             scrot /tmp/shot-seeded.png
             kill $(cat /tmp/egui-app.pid); wait 2>/dev/null; sleep 1
             CA_DATA_DIR=/tmp/egui-seed CA_EGUI_DARK=1 ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
-            sleep 15
+            sleep 25
             scrot /tmp/shot-dark.png
             kill $(cat /tmp/egui-app.pid); wait 2>/dev/null
           ' || true
