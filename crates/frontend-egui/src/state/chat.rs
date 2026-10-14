@@ -27,6 +27,8 @@ pub struct ChatLog {
     messages: Vec<Message>,
     pub draft: String,
     pub sending: bool,
+    /// Composer asked for a run; the app owns the pump send.
+    pub send_requested: bool,
 }
 
 impl ChatLog {
@@ -95,5 +97,26 @@ impl ChatLog {
     pub fn clear(&mut self) {
         self.messages.clear();
         self.sending = false;
+        self.send_requested = false;
+    }
+
+    /// Ask the app to run the draft (no-op when blank or already sending).
+    pub fn request_send(&mut self) {
+        if !self.draft.trim().is_empty() && !self.sending {
+            self.send_requested = true;
+        }
+    }
+
+    /// Consume a pending send: pushes the user bubble, opens the assistant
+    /// bubble, and returns the prompt for the pump. `None` when idle.
+    pub fn take_send_request(&mut self) -> Option<String> {
+        if !self.send_requested {
+            return None;
+        }
+        self.send_requested = false;
+        let prompt = std::mem::take(&mut self.draft);
+        self.push_user(&prompt);
+        self.begin_assistant();
+        Some(prompt)
     }
 }

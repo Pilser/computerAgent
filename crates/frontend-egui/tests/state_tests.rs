@@ -65,6 +65,19 @@ fn usage_fraction_clamps_and_labels() {
 }
 
 #[test]
+fn send_request_round_trip() {
+    let mut s = state();
+    s.chat.request_send();
+    assert!(s.chat.take_send_request().is_none());
+    s.chat.draft = "hi".to_string();
+    s.chat.request_send();
+    assert_eq!(s.chat.take_send_request().as_deref(), Some("hi"));
+    assert!(s.chat.sending);
+    assert_eq!(s.chat.messages().len(), 2);
+    assert!(s.chat.take_send_request().is_none());
+}
+
+#[test]
 fn errors_surface_as_banners_until_dismissed() {
     let mut s = state();
     s.status.set_err("boom");

@@ -18,6 +18,7 @@ pub struct ComputerAgentApp {
     state: ChatState,
     shell: Shell,
     pump: Pump,
+    loaders_installed: bool,
 }
 
 impl ComputerAgentApp {
@@ -32,6 +33,7 @@ impl ComputerAgentApp {
             state,
             shell: Shell::new(),
             pump,
+            loaders_installed: false,
         }
     }
 
@@ -49,6 +51,13 @@ impl Default for ComputerAgentApp {
 
 impl eframe::App for ComputerAgentApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if !self.loaders_installed {
+            egui_extras::install_image_loaders(ui.ctx());
+            self.loaders_installed = true;
+        }
+        if let Some(prompt) = self.state.chat.take_send_request() {
+            self.pump.send(prompt, self.active_thread());
+        }
         for event in self.pump.drain() {
             match event {
                 PumpEvent::Chunk(chunk) => {
@@ -59,6 +68,7 @@ impl eframe::App for ComputerAgentApp {
                     self.state
                         .status
                         .set_ok(&format!("{} messages", self.state.chat.messages().len()));
+                    self.state.refresh_from_engine(&self.engine);
                     self.state
                         .refresh_usage(&self.engine, self.active_thread().as_deref());
                 }

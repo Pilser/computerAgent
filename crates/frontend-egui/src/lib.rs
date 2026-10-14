@@ -4,11 +4,12 @@
 //! frontend (which keeps shipping until screenshot parity). See
 //! `ARCHITECTURE.md` for the shell/slot/overlay contract.
 //!
-//! Re-export only; see [`app`], [`components`], [`shell`], [`state`],
-//! [`stream`], [`theme`].
+//! Re-export only; see [`app`], [`components`], [`markdown`], [`shell`],
+//! [`state`], [`stream`], [`theme`].
 
 pub mod app;
 pub mod components;
+pub mod markdown;
 pub mod shell;
 pub mod state;
 pub mod stream;
