@@ -1,0 +1,13 @@
+[package]
+name = "computer-agent-desktop-egui"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "computer-agent-egui"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+eframe = "0.36"
+computer-agent-frontend-egui = { path = "../frontend-egui" }

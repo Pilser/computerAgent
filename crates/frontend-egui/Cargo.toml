@@ -1,0 +1,19 @@
+[package]
+name = "computer-agent-frontend-egui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+eframe = "0.36"
+egui = "0.36"
+egui_commonmark = "0.25"
+egui_extras = { version = "0.36", features = ["svg"] }
+tokio = { workspace = true, features = ["sync"] }
+command-api = { path = "../command-api" }
+computer-agent-engine = { path = "../engine" }
+computer-agent-session-store = { path = "../session-store" }
+
+[dev-dependencies]
+egui_kittest = "0.36"
+tokio = { workspace = true }
