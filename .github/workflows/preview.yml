@@ -44,3 +44,57 @@ jobs:
           name: preview-${{ github.ref_name }}
           path: preview-out/
           if-no-files-found: error
+
+  egui-shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: system deps (eframe link + xvfb + software GL/Vulkan + capture)
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+          xvfb mesa-vulkan-drivers libgl1-mesa-dri scrot
+      - name: restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: computerAgent-preview-egui
+      - name: build desktop-egui (debug, capped)
+        run: cargo build -p computer-agent-desktop-egui --jobs 2
+      - name: capture fresh + seeded windows under xvfb
+        run: |
+          mkdir -p preview-out
+          cp -r crates/frontend-egui/tests/fixtures/seeded /tmp/egui-seed
+          chmod -R u+w /tmp/egui-seed
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c '
+            rm -rf /tmp/egui-fresh; mkdir -p /tmp/egui-fresh
+            CA_DATA_DIR=/tmp/egui-fresh ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
+            sleep 15
+            scrot /tmp/shot-fresh.png
+            kill $(cat /tmp/egui-app.pid); wait 2>/dev/null; sleep 1
+            CA_DATA_DIR=/tmp/egui-seed ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
+            sleep 15
+            scrot /tmp/shot-seeded.png
+            kill $(cat /tmp/egui-app.pid); wait 2>/dev/null; sleep 1
+            CA_DATA_DIR=/tmp/egui-seed CA_EGUI_DARK=1 ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid
+            sleep 15
+            scrot /tmp/shot-dark.png
+            kill $(cat /tmp/egui-app.pid); wait 2>/dev/null
+          ' || true
+          cp /tmp/shot-fresh.png preview-out/egui-fresh.png 2>/dev/null || true
+          cp /tmp/shot-seeded.png preview-out/egui-seeded.png 2>/dev/null || true
+          cp /tmp/shot-dark.png preview-out/egui-dark.png 2>/dev/null || true
+          ls -la preview-out/ || true
+      - name: fallback to kittest snapshots when xvfb capture failed
+        run: |
+          if [ ! -s preview-out/egui-fresh.png ] || [ ! -s preview-out/egui-seeded.png ] || [ ! -s preview-out/egui-dark.png ]; then
+            echo "xvfb capture failed; generating egui_kittest snapshots instead"
+            UPDATE_SNAPSHOTS=true cargo test -p computer-agent-frontend-egui --jobs 2 -- --test-threads=2
+            cp crates/frontend-egui/tests/snapshots/*.png preview-out/
+          fi
+      - name: upload egui screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-egui-${{ github.ref_name }}
+          path: preview-out/
+          if-no-files-found: error

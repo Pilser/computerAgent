@@ -46,7 +46,7 @@ impl Shell {
         state: &mut ChatState,
         engine: &computer_agent_engine::Engine,
     ) {
-        crate::theme::apply(ui.ctx());
+        crate::theme::apply(ui.ctx(), state.dark_mode);
         let width = ui.max_rect().width();
         let narrow = width < NARROW_BREAKPOINT;
         let _density = density_scale(width);
@@ -66,6 +66,7 @@ impl Shell {
             egui::Panel::left("sidebar")
                 .exact_size(300.0)
                 .resizable(false)
+                .frame(crate::theme::sidebar_frame(state.dark_mode))
                 .show(ui, |ui| {
                     self.show_slot(SlotId::Sidebar, ui, state, engine);
                 });

@@ -35,6 +35,8 @@ pub struct ChatState {
     pub status: StatusState,
     /// Pending Ask approval + last answer (engine wiring is a TODO).
     pub approval: ApprovalState,
+    /// Warm paper theme (`false`) or ember dark theme (`true`).
+    pub dark_mode: bool,
 }
 
 impl ChatState {
@@ -47,6 +49,7 @@ impl ChatState {
             usage: UsageState::default(),
             status: StatusState::new(),
             approval: ApprovalState::new(),
+            dark_mode: false,
         }
     }
 

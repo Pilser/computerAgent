@@ -7,6 +7,7 @@ use computer_agent_engine::Engine;
 
 use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use crate::state::ChatState;
+use crate::theme;
 
 /// Toast overlay: draws every live notice.
 pub struct Toast;
@@ -45,12 +46,24 @@ impl Component for Toast {
         &mut self,
         ui: &mut egui::Ui,
         _slot: Allocated,
-        _state: &mut ChatState,
+        state: &mut ChatState,
         _engine: &Engine,
         overlays: &mut OverlayStack,
     ) {
-        for text in overlays.toasts() {
-            ui.label(&text);
+        let dark = state.dark_mode;
+        let (fill, text) = theme::toast(dark);
+        for msg in overlays.toasts() {
+            egui::Frame {
+                fill,
+                stroke: egui::Stroke::new(1.0, theme::hairline(dark)),
+                corner_radius: egui::CornerRadius::same(theme::BUTTON_ROUNDING),
+                inner_margin: egui::Margin::same(8),
+                ..Default::default()
+            }
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(msg).small().color(text));
+            });
+            ui.add_space(4.0);
         }
     }
 }

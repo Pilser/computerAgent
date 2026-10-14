@@ -23,10 +23,26 @@ pub struct ComputerAgentApp {
 
 impl ComputerAgentApp {
     /// Build against the production engine + a fresh pump thread.
+    ///
+    /// Opens the most recent thread so a returning user (and the
+    /// screenshot fixture) lands on real content instead of an empty feed.
+    /// `CA_EGUI_DARK=1` boots straight into the ember palette.
     pub fn new() -> Self {
         let engine = Arc::new(Engine::new());
         let mut state = ChatState::new(Engine::chat_models(), &engine.current_model());
         state.refresh_from_engine(&engine);
+        if state.threads.active_id.is_none() {
+            if let Some(first) = state.threads.rows().first().map(|r| r.id.clone()) {
+                state.threads.select(&first);
+                if let Some(session) = engine.open_thread(&first) {
+                    state.chat.load_session(&session);
+                }
+                state.refresh_usage(&engine, Some(first.as_str()));
+            }
+        }
+        if std::env::var_os("CA_EGUI_DARK").is_some() {
+            state.dark_mode = true;
+        }
         let pump = Pump::new(Arc::clone(&engine));
         Self {
             engine,

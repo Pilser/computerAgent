@@ -163,3 +163,38 @@ until egui reaches screenshot parity.
 2. Feed/message/composer + markdown bridge → snapshot proof.
 3. Sidebar/topbar/banner + desktop-egui binary → artifact + live test.
 4. Mermaid images inline + toast/menu overlays → parity, retire Slint feed.
+5. Warm styling: full Visuals + type/spacing scale, bubbles, chips,
+   dark toggle, xvfb screenshot proof in `preview.yml`.
+
+## 7. Styling (egui5): Visuals ownership, bubble pattern, screenshot proof
+
+`src/theme.rs` is the ONLY styling entry point and it owns the whole
+look: `apply(ctx, dark)` runs at the start of EVERY `Shell::run` frame
+(never once-at-boot, so no widget or panel can keep stale stock
+visuals), setting full `Visuals` — paper `#FAF5EC` window wash,
+`#FFFDF8` panels, terracotta `#C4622D` primary with amber `#B98A2F`
+hovers/selection, dark ink text, 8px button / 10px frame rounding, no
+shadows — plus the type scale (body 15, button 14, small 12.5, heading
+20) and `(8, 6)` item spacing that the stock theme never touched.
+Components read ambient visuals and the tiny helpers (`bubble`,
+`soft_text`, `hairline`, `chip`, `danger`, `toast`); they hard-code no
+color. Dark mode is a single `dark_mode: bool` on `ChatState` (topbar
+☾/☀ chip, `CA_EGUI_DARK=1` boot override) flipping a full ember
+palette (`#211A13` bg, lit terracotta/amber accents) — there is no
+half-themed state.
+
+Bubbles are `Frame`s, not labels: user messages align right in
+terracotta with paper text, assistant messages align left on the
+`#F1E7D3` surface wash, both capped at ~72% of the feed width via
+`available_width` (so wrap measures against the real column), with a
+muted `▲ N tok` footnote and copy/… bordered chips in the header row.
+The composer is a surfaced `TextEdit` with its own `Frame` (1px
+hairline, radius 10, 3 rows) above a filled terracotta Send that swaps
+to a danger Stop while streaming; sidebar rows are full-width tinted
+cards with a left brand bar on the active thread, letterspaced muted
+section labels, and hairline separators. Proof is visual, not verbal:
+`preview.yml`'s `egui-shots` job builds `computer-agent-egui`, boots it
+under `xvfb` three ways (fresh `CA_DATA_DIR`, seeded fixture thread
+from `tests/fixtures/seeded`, seeded + dark), captures each window with
+`scrot`, and uploads the PNGs — falling back to `egui_kittest`
+`UPDATE_SNAPSHOTS` PNGs only if the xvfb capture comes back empty.

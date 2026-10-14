@@ -2,12 +2,13 @@
 //!
 //! The shell only reserves this slot while
 //! [`StatusState::banner_current`](crate::state::StatusState::banner_current)
-//! is `Some`.
+//! is `Some`. The notice paints as a danger-tinted card, not a bare label.
 
 use computer_agent_engine::Engine;
 
 use crate::shell::{Allocated, Component, Layer, OverlayStack, SlotId};
 use crate::state::ChatState;
+use crate::theme;
 
 /// Error banner: notice text + dismiss.
 pub struct Banner;
@@ -47,11 +48,26 @@ impl Component for Banner {
         _overlays: &mut OverlayStack,
     ) {
         if let Some(text) = state.status.banner_current().map(str::to_string) {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(text).strong());
-                if ui.small_button("dismiss").clicked() {
-                    state.status.dismiss_banner();
-                }
+            let dark = state.dark_mode;
+            let (wash, edge, ink) = theme::danger(dark);
+            egui::Frame {
+                fill: wash,
+                stroke: egui::Stroke::new(1.0, edge),
+                corner_radius: egui::CornerRadius::same(theme::BUTTON_ROUNDING),
+                inner_margin: egui::Margin::same(8),
+                ..Default::default()
+            }
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("⚠").strong().color(edge));
+                    ui.label(egui::RichText::new(text).strong().color(ink));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if theme::chip(ui, "dismiss", dark).clicked() {
+                            state.status.dismiss_banner();
+                        }
+                    });
+                });
             });
         }
     }
