@@ -38,7 +38,12 @@ pub fn show_block(ui: &mut egui::Ui, block: &Block, md_cache: &mut CommonMarkCac
         Block::Code { lang, code } => show_code(ui, lang, code),
         Block::Mermaid { source } => match render_cached(source) {
             Some(svg) => {
-                ui.add(egui::Image::from_bytes(image_uri(source), svg).shrink_to_fit());
+                ui.add(
+                    egui::Image::from_bytes(image_uri(source), svg)
+                        .alt_text("mermaid diagram")
+                        .max_width(ui.available_width())
+                        .shrink_to_fit(),
+                );
             }
             None => show_code(ui, "mermaid", source),
         },

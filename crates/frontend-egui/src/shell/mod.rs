@@ -80,6 +80,9 @@ impl Shell {
             self.show_slot(SlotId::Feed, ui, state, engine);
         });
 
+        if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::K)) {
+            self.overlays.show_modal("palette");
+        }
         self.show_overlays(ui, state, engine);
     }
 

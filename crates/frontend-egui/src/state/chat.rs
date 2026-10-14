@@ -29,6 +29,8 @@ pub struct ChatLog {
     pub sending: bool,
     /// Composer asked for a run; the app owns the pump send.
     pub send_requested: bool,
+    /// Message index the context menu targets (`None` = no menu).
+    pub menu_message: Option<usize>,
 }
 
 impl ChatLog {

@@ -1,15 +1,19 @@
-//! Menu: Menu overlay stub (real render in later phases).
+//! Menu: message context menu (anchored overlay).
+//!
+//! The feed's "…" button sets [`ChatLog::menu_message`](crate::state::ChatLog)
+//! and opens this overlay; Copy duplicates the message to the clipboard and
+//! confirms with a toast.
 
-use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use computer_agent_engine::Engine;
 
+use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use crate::state::ChatState;
 
-/// Menu stub: draws only its id label when the stack shows it.
+/// Message menu: snippet + copy action for the targeted bubble.
 pub struct Menu;
 
 impl Menu {
-    /// Build the stub.
+    /// Build the menu.
     pub fn new() -> Self {
         Self
     }
@@ -42,10 +46,32 @@ impl Component for Menu {
         &mut self,
         ui: &mut egui::Ui,
         _slot: Allocated,
-        _state: &mut ChatState,
+        state: &mut ChatState,
         _engine: &Engine,
-        _overlays: &mut OverlayStack,
+        overlays: &mut OverlayStack,
     ) {
-        ui.label("menu (stub)");
+        let Some(idx) = state.chat.menu_message else {
+            overlays.dismiss_menu();
+            return;
+        };
+        let Some(msg) = state.chat.messages().get(idx).cloned() else {
+            state.chat.menu_message = None;
+            overlays.dismiss_menu();
+            return;
+        };
+        ui.vertical(|ui| {
+            let snippet: String = msg.content.chars().take(60).collect();
+            ui.label(egui::RichText::new(snippet).weak().small());
+            if ui.small_button("copy message").clicked() {
+                ui.ctx().copy_text(msg.content.clone());
+                overlays.push_toast("copied message", std::time::Duration::from_secs(2));
+                state.chat.menu_message = None;
+                overlays.dismiss_menu();
+            }
+            if ui.small_button("close").clicked() {
+                state.chat.menu_message = None;
+                overlays.dismiss_menu();
+            }
+        });
     }
 }

@@ -69,7 +69,14 @@ impl Component for Feed {
             .stick_to_bottom(true)
             .show(ui, |ui| {
                 let total = state.chat.messages().len();
-                let visible: Vec<Message> = self.visible(state.chat.messages()).to_vec();
+                let base = total.saturating_sub(FEED_WINDOW);
+                let visible: Vec<(usize, Message)> = self
+                    .visible(state.chat.messages())
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(k, m)| (base + k, m))
+                    .collect();
                 if visible.len() < total {
                     ui.label(
                         egui::RichText::new(format!(
@@ -84,20 +91,22 @@ impl Component for Feed {
                 if visible.is_empty() {
                     ui.label(egui::RichText::new("No messages yet — say hi below.").weak());
                 }
-                for msg in &visible {
-                    show_message_bubble(ui, msg, &mut self.md_cache, overlays);
+                for (idx, msg) in &visible {
+                    show_message_bubble(ui, *idx, msg, &mut self.md_cache, overlays, state);
                     ui.add_space(8.0);
                 }
             });
     }
 }
 
-/// One bubble: role header with copy button, then the markdown body.
+/// One bubble: role header with copy + menu buttons, then the markdown body.
 fn show_message_bubble(
     ui: &mut egui::Ui,
+    idx: usize,
     msg: &Message,
     md_cache: &mut CommonMarkCache,
     overlays: &mut OverlayStack,
+    state: &mut ChatState,
 ) {
     let (role, mark) = match msg.role {
         MessageRole::User => ("you", "↑"),
@@ -118,6 +127,10 @@ fn show_message_bubble(
         if ui.small_button("copy").clicked() {
             ui.ctx().copy_text(msg.content.clone());
             overlays.push_toast("copied message", std::time::Duration::from_secs(2));
+        }
+        if ui.small_button("…").clicked() {
+            state.chat.menu_message = Some(*idx);
+            overlays.show_menu("menu");
         }
     });
     show_message(ui, &msg.content, md_cache);

@@ -3,11 +3,14 @@
 //! Narrow slices (`&chat`, `&threads`, …) flow into components; only this
 //! facade talks to the [`Engine`](computer_agent_engine::Engine).
 
+pub mod approval;
 pub mod chat;
 pub mod models;
 pub mod status;
 pub mod threads;
 pub mod usage;
+
+pub use approval::{ApprovalRequest, ApprovalState};
 
 pub use chat::{ChatLog, Message};
 pub use models::ModelState;
@@ -30,6 +33,8 @@ pub struct ChatState {
     pub usage: UsageState,
     /// Status line + banner queue.
     pub status: StatusState,
+    /// Pending Ask approval + last answer (engine wiring is a TODO).
+    pub approval: ApprovalState,
 }
 
 impl ChatState {
@@ -41,6 +46,7 @@ impl ChatState {
             models: ModelState::new(models, current),
             usage: UsageState::default(),
             status: StatusState::new(),
+            approval: ApprovalState::new(),
         }
     }
 

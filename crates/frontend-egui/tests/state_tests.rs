@@ -65,6 +65,18 @@ fn usage_fraction_clamps_and_labels() {
 }
 
 #[test]
+fn approval_answer_round_trip() {
+    // Approval answer round-trips through state (engine wiring is a TODO).
+    let mut s = state();
+    s.approval.request("bash", "ls");
+    assert!(s.approval.pending().is_some());
+    assert!(s.approval.answer(true));
+    assert_eq!(s.approval.last_answer, Some(true));
+    assert!(s.approval.pending().is_none());
+    assert!(!s.approval.answer(false));
+}
+
+#[test]
 fn send_request_round_trip() {
     let mut s = state();
     s.chat.request_send();

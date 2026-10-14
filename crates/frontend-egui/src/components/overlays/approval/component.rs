@@ -1,15 +1,20 @@
-//! Approval: Modal overlay stub (real render in later phases).
+//! Approval: modal Ask-approval dialog for one gated tool call.
+//!
+//! Renders [`ApprovalState::pending`](crate::state::ApprovalState); Allow /
+//! Deny records the answer there. Engine wiring is a TODO (see
+//! [`crate::state::approval`]): nothing stages requests yet, so this dialog
+//! only appears in tests / once the engine streams Ask events.
 
-use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use computer_agent_engine::Engine;
 
+use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use crate::state::ChatState;
 
-/// Approval stub: draws only its id label when the stack shows it.
+/// Ask-approval dialog: tool + input with Allow/Deny.
 pub struct Approval;
 
 impl Approval {
-    /// Build the stub.
+    /// Build the approval dialog.
     pub fn new() -> Self {
         Self
     }
@@ -42,10 +47,30 @@ impl Component for Approval {
         &mut self,
         ui: &mut egui::Ui,
         _slot: Allocated,
-        _state: &mut ChatState,
+        state: &mut ChatState,
         _engine: &Engine,
-        _overlays: &mut OverlayStack,
+        overlays: &mut OverlayStack,
     ) {
-        ui.label("approval (stub)");
+        let Some(req) = state.approval.pending().cloned() else {
+            return;
+        };
+        if overlays.modal() != Some("approval") {
+            overlays.show_modal("approval");
+        }
+        ui.vertical(|ui| {
+            ui.heading("Approval needed");
+            ui.label(format!("tool: {}", req.tool));
+            ui.label(format!("input: {}", req.input));
+            ui.horizontal(|ui| {
+                if ui.button("Allow").clicked() {
+                    state.approval.answer(true);
+                    overlays.dismiss_modal();
+                }
+                if ui.button("Deny").clicked() {
+                    state.approval.answer(false);
+                    overlays.dismiss_modal();
+                }
+            });
+        });
     }
 }
