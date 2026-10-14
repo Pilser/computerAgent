@@ -81,6 +81,6 @@ impl eframe::App for ComputerAgentApp {
         if self.state.chat.sending {
             ui.ctx().request_repaint();
         }
-        self.shell.run(ui, &mut self.state);
+        self.shell.run(ui, &mut self.state, &self.engine);
     }
 }

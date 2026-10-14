@@ -1,7 +1,7 @@
 //! `Component` trait + ordered inventory. One `register()` line per
 //! plug-in; the shell iterates in order, base slots first.
 
-use super::overlay::{Anchor, OverlayKind};
+use super::overlay::{Anchor, OverlayKind, OverlayStack};
 use super::slot::{Allocated, SlotId};
 use crate::state::ChatState;
 
@@ -15,8 +15,10 @@ pub enum Layer {
 }
 
 /// One shell plug-in. NOTE: `show` takes `&mut ChatState` (narrow slices
-/// in later phases); the `ARCHITECTURE.md` §2 sketch omits state only
-/// because it describes the layout contract, not the data flow.
+/// in later phases) plus the shared [`Engine`](computer_agent_engine::Engine)
+/// for thread/model actions and the [`OverlayStack`] for toast/modal/menu
+/// requests; the `ARCHITECTURE.md` §2 sketch omits data flow because it
+/// describes the layout contract only.
 pub trait Component {
     /// Stable id (`"feed"`, `"approval"`, …) for overlay routing.
     fn id(&self) -> &'static str;
@@ -29,7 +31,14 @@ pub trait Component {
         Anchor::Center
     }
     /// Draw inside `slot` (already clipped to the pre-allocated rect).
-    fn show(&mut self, ui: &mut egui::Ui, slot: Allocated, state: &mut ChatState);
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        slot: Allocated,
+        state: &mut ChatState,
+        engine: &computer_agent_engine::Engine,
+        overlays: &mut OverlayStack,
+    );
 }
 
 /// Ordered plug-in inventory; registration order = paint order.

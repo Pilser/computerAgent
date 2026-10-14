@@ -4,7 +4,9 @@
 //! phases) sets [`ChatState`](crate::state::ChatState) intent, the app owns
 //! the `pump.send()` call.
 
-use crate::shell::{Allocated, Component, Layer, SlotId};
+use crate::shell::{Allocated, Component, Layer, OverlayStack, SlotId};
+use computer_agent_engine::Engine;
+
 use crate::state::ChatState;
 
 /// Draft editor + send button.
@@ -36,7 +38,14 @@ impl Component for Composer {
         Layer::Base
     }
 
-    fn show(&mut self, ui: &mut egui::Ui, _slot: Allocated, state: &mut ChatState) {
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        _slot: Allocated,
+        state: &mut ChatState,
+        _engine: &Engine,
+        _overlays: &mut OverlayStack,
+    ) {
         ui.vertical(|ui| {
             let width = ui.available_width();
             ui.add(

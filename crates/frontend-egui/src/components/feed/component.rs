@@ -9,8 +9,9 @@
 use egui_commonmark::CommonMarkCache;
 
 use crate::markdown::show_message;
-use crate::shell::{Allocated, Component, Layer, SlotId};
+use crate::shell::{Allocated, Component, Layer, OverlayStack, SlotId};
 use crate::state::{ChatState, Message};
+use computer_agent_engine::Engine;
 use computer_agent_session_store::session::MessageRole;
 
 /// How many trailing messages the feed draws (older ones are summarized).
@@ -55,7 +56,14 @@ impl Component for Feed {
         Layer::Base
     }
 
-    fn show(&mut self, ui: &mut egui::Ui, _slot: Allocated, state: &mut ChatState) {
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        _slot: Allocated,
+        state: &mut ChatState,
+        _engine: &Engine,
+        overlays: &mut OverlayStack,
+    ) {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .stick_to_bottom(true)
@@ -77,7 +85,7 @@ impl Component for Feed {
                     ui.label(egui::RichText::new("No messages yet — say hi below.").weak());
                 }
                 for msg in &visible {
-                    show_message_bubble(ui, msg, &mut self.md_cache);
+                    show_message_bubble(ui, msg, &mut self.md_cache, overlays);
                     ui.add_space(8.0);
                 }
             });
@@ -85,7 +93,12 @@ impl Component for Feed {
 }
 
 /// One bubble: role header with copy button, then the markdown body.
-fn show_message_bubble(ui: &mut egui::Ui, msg: &Message, md_cache: &mut CommonMarkCache) {
+fn show_message_bubble(
+    ui: &mut egui::Ui,
+    msg: &Message,
+    md_cache: &mut CommonMarkCache,
+    overlays: &mut OverlayStack,
+) {
     let (role, mark) = match msg.role {
         MessageRole::User => ("you", "↑"),
         MessageRole::Assistant => ("assistant", "↓"),
@@ -104,6 +117,7 @@ fn show_message_bubble(ui: &mut egui::Ui, msg: &Message, md_cache: &mut CommonMa
         );
         if ui.small_button("copy").clicked() {
             ui.ctx().copy_text(msg.content.clone());
+            overlays.push_toast("copied message", std::time::Duration::from_secs(2));
         }
     });
     show_message(ui, &msg.content, md_cache);

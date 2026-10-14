@@ -5,9 +5,10 @@
 //! with `UPDATE_SNAPSHOTS=true cargo test -p computer-agent-frontend-egui`
 //! (see `egui_kittest` docs), then they pass everywhere.
 
+use computer_agent_engine::Engine;
 use computer_agent_frontend_egui::components::composer::Composer;
 use computer_agent_frontend_egui::components::feed::Feed;
-use computer_agent_frontend_egui::shell::{Allocated, Component, SlotId};
+use computer_agent_frontend_egui::shell::{Allocated, Component, OverlayStack, SlotId};
 use computer_agent_frontend_egui::state::ChatState;
 use egui_kittest::{
     kittest::{NodeT, Queryable},
@@ -31,9 +32,17 @@ fn composer_send_marks_request() {
     let mut s = state();
     s.chat.draft = "hello".to_string();
     let mut composer = Composer::new();
+    let engine = Engine::with_store_dir(std::path::PathBuf::from("/tmp/opencode/egui-snapshots"));
+    let mut overlays = OverlayStack::new();
     let mut harness = Harness::new_ui_state(
         |ui: &mut egui::Ui, state: &mut ChatState| {
-            composer.show(ui, Allocated::new(SlotId::Composer, ui.max_rect()), state);
+            composer.show(
+                ui,
+                Allocated::new(SlotId::Composer, ui.max_rect()),
+                state,
+                &engine,
+                &mut overlays,
+            );
         },
         s,
     );
@@ -47,9 +56,17 @@ fn composer_send_marks_request() {
 fn composer_blank_draft_sends_nothing() {
     let s = state();
     let mut composer = Composer::new();
+    let engine = Engine::with_store_dir(std::path::PathBuf::from("/tmp/opencode/egui-snapshots"));
+    let mut overlays = OverlayStack::new();
     let mut harness = Harness::new_ui_state(
         |ui: &mut egui::Ui, state: &mut ChatState| {
-            composer.show(ui, Allocated::new(SlotId::Composer, ui.max_rect()), state);
+            composer.show(
+                ui,
+                Allocated::new(SlotId::Composer, ui.max_rect()),
+                state,
+                &engine,
+                &mut overlays,
+            );
         },
         s,
     );
@@ -62,8 +79,16 @@ fn composer_blank_draft_sends_nothing() {
 fn feed_renders_bubbles() {
     let mut s = feed_state();
     let mut feed = Feed::new();
+    let engine = Engine::with_store_dir(std::path::PathBuf::from("/tmp/opencode/egui-snapshots"));
+    let mut overlays = OverlayStack::new();
     let mut harness = Harness::new_ui(|ui: &mut egui::Ui| {
-        feed.show(ui, Allocated::new(SlotId::Feed, ui.max_rect()), &mut s);
+        feed.show(
+            ui,
+            Allocated::new(SlotId::Feed, ui.max_rect()),
+            &mut s,
+            &engine,
+            &mut overlays,
+        );
     });
     harness.set_size(egui::Vec2::new(800.0, 600.0));
     harness.run();
@@ -75,9 +100,17 @@ fn composer_snapshot() {
     let mut s = state();
     s.chat.draft = "hello".to_string();
     let mut composer = Composer::new();
+    let engine = Engine::with_store_dir(std::path::PathBuf::from("/tmp/opencode/egui-snapshots"));
+    let mut overlays = OverlayStack::new();
     let mut harness = Harness::new_ui_state(
         |ui: &mut egui::Ui, state: &mut ChatState| {
-            composer.show(ui, Allocated::new(SlotId::Composer, ui.max_rect()), state);
+            composer.show(
+                ui,
+                Allocated::new(SlotId::Composer, ui.max_rect()),
+                state,
+                &engine,
+                &mut overlays,
+            );
         },
         s,
     );

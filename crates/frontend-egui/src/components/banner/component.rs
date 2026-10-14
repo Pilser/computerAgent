@@ -1,13 +1,19 @@
-//! Banner: Banner slot stub (phase 1 empty rect; real render in later phases).
+//! Banner: oldest error/status notice with a dismiss button.
+//!
+//! The shell only reserves this slot while
+//! [`StatusState::banner_current`](crate::state::StatusState::banner_current)
+//! is `Some`.
 
-use crate::shell::{Allocated, Component, Layer, SlotId};
+use computer_agent_engine::Engine;
+
+use crate::shell::{Allocated, Component, Layer, OverlayStack, SlotId};
 use crate::state::ChatState;
 
-/// Banner stub: reserves its slot, draws only its id label.
+/// Error banner: notice text + dismiss.
 pub struct Banner;
 
 impl Banner {
-    /// Build the stub.
+    /// Build the banner.
     pub fn new() -> Self {
         Self
     }
@@ -32,7 +38,21 @@ impl Component for Banner {
         Layer::Base
     }
 
-    fn show(&mut self, ui: &mut egui::Ui, _slot: Allocated, _state: &mut ChatState) {
-        ui.label("banner (stub)");
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        _slot: Allocated,
+        state: &mut ChatState,
+        _engine: &Engine,
+        _overlays: &mut OverlayStack,
+    ) {
+        if let Some(text) = state.status.banner_current().map(str::to_string) {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(text).strong());
+                if ui.small_button("dismiss").clicked() {
+                    state.status.dismiss_banner();
+                }
+            });
+        }
     }
 }

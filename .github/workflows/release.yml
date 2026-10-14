@@ -31,4 +31,5 @@ jobs:
           path: |
             target/release/computerAgent*
             target/release/computer-agent*
+            target/release/computer-agent-egui*
           if-no-files-found: warn

@@ -1,13 +1,18 @@
-//! Toast: Toast overlay stub (real render in later phases).
+//! Toast: transient notices ("copied", …) in a bottom-right window.
+//!
+//! Producers push via [`OverlayStack::push_toast`](crate::shell::OverlayStack);
+//! the shell shows this component while any toast is live.
 
-use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, SlotId};
+use computer_agent_engine::Engine;
+
+use crate::shell::{Allocated, Anchor, Component, Layer, OverlayKind, OverlayStack, SlotId};
 use crate::state::ChatState;
 
-/// Toast stub: draws only its id label when the stack shows it.
+/// Toast overlay: draws every live notice.
 pub struct Toast;
 
 impl Toast {
-    /// Build the stub.
+    /// Build the toast overlay.
     pub fn new() -> Self {
         Self
     }
@@ -36,7 +41,16 @@ impl Component for Toast {
         Anchor::DockBottomRight
     }
 
-    fn show(&mut self, ui: &mut egui::Ui, _slot: Allocated, _state: &mut ChatState) {
-        ui.label("toast (stub)");
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        _slot: Allocated,
+        _state: &mut ChatState,
+        _engine: &Engine,
+        overlays: &mut OverlayStack,
+    ) {
+        for text in overlays.toasts() {
+            ui.label(&text);
+        }
     }
 }
