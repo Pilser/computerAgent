@@ -1,0 +1,46 @@
+name: preview
+
+# Visual proof for the Slint UI without any local build.
+# Uses the upstream prebuilt slint-viewer (pinned to our Cargo.lock Slint),
+# so no compile happens here either: --check validates, --screenshot renders.
+# Fires on the same tags as release, plus manual dispatch.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: viewer runtime deps
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y libx11-xcb1 libxcb1 libxkbcommon0 libinput10 libgbm1
+      - name: fetch prebuilt slint-viewer 1.18.1
+        run: |
+          gh release download v1.18.1 -R slint-ui/slint \
+            -p 'slint-viewer-linux.tar.gz' -D /tmp/viewer
+          tar xzf /tmp/viewer/slint-viewer-linux.tar.gz -C /tmp/viewer
+          BIN=$(find /tmp/viewer -name 'slint-viewer' -type f | head -1)
+          echo "VIEWER=$BIN" >> "$GITHUB_ENV"
+          "$BIN" --version
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: check slint files
+        run: |
+          "$VIEWER" --check crates/frontend-slint/ui/appwindow.slint
+      - name: render screenshots (headless)
+        run: |
+          mkdir -p preview-out
+          SLINT_SCALE_FACTOR=1 "$VIEWER" --screenshot \
+            preview-out/chat-default.png \
+            crates/frontend-slint/ui/appwindow.slint
+      - name: upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-${{ github.ref_name }}
+          path: preview-out/
+          if-no-files-found: error

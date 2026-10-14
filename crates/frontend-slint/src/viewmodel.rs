@@ -53,6 +53,8 @@ pub fn ui_messages(session: &Session) -> Vec<ChatMsg> {
 
 /// Sidebar row for one engine thread.
 pub fn ui_thread(t: &EngineThread) -> ThreadInfo {
+    // Short id: full UUIDs turn the meta line into a debug dump.
+    let short = t.id.chars().take(8).collect::<String>();
     ThreadInfo {
         id: t.id.clone().into(),
         title: t.title.clone().into(),
@@ -61,7 +63,7 @@ pub fn ui_thread(t: &EngineThread) -> ThreadInfo {
         output_tokens: clamp_tokens(t.output_tokens),
         cost_cents: t.cost_cents,
         cost: t.cost_label.clone().into(),
-        stats: format!("↑{} ↓{} tok · {}", t.input_tokens, t.output_tokens, t.id).into(),
+        stats: format!("↑{} ↓{} tok · {short}", t.input_tokens, t.output_tokens).into(),
         updated_at: t.updated_at.clone().into(),
     }
 }

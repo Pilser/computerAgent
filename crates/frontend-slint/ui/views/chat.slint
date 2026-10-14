@@ -120,10 +120,28 @@ export component ChatView inherits Rectangle {
                 enabled: !AppState.sending;
                 accepted(text) => { AppState.send-message(text); }
             }
-            Button {
-                text: "Send";
-                enabled: !AppState.sending && AppState.draft != "";
-                clicked => { AppState.send-message(AppState.draft); }
+            // Primary send: custom so it stays readable on paper in both
+            // schemes (std Button follows Palette and washes out).
+            send := Rectangle {
+                width: 92px;
+                background: (ta.has-hover && send-enabled) ? WarmTheme.amber : WarmTheme.brand;
+                opacity: send-enabled ? 1.0 : 0.45;
+                border-radius: WarmTheme.radius;
+                property <bool> send-enabled: !AppState.sending && AppState.draft != "";
+
+                Text {
+                    text: "Send ➤";
+                    color: WarmTheme.user-text;
+                    font-size: WarmTheme.font-body;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                ta := TouchArea {
+                    enabled: send-enabled;
+                    mouse-cursor: pointer;
+                    clicked => { AppState.send-message(AppState.draft); }
+                }
             }
             Button {
                 visible: AppState.sending;

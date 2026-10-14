@@ -28,18 +28,23 @@ export component HistoryView inherits Rectangle {
             vertical-stretch: 1;
             VerticalBox {
                 spacing: 4px;
-                for t in AppState.threads: Rectangle {
-                    background: t.id == AppState.active-id ? WarmTheme.ai-bubble : transparent;
-                    border-radius: 8px;
-                    // Click catcher beneath the content (documented pattern:
-                    // TouchArea fills the parent; the Button above consumes
-                    // its own clicks so open+delete never double-fire).
-                    TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { AppState.open-thread(t.id); }
-                    }
-                    HorizontalBox {
-                        padding: 4px;
+                for t in AppState.threads: VerticalBox {
+                    spacing: 0px;
+                    Rectangle {
+                        background: t.id == AppState.active-id ? WarmTheme.ai-bubble : transparent;
+                        border-radius: 8px;
+                        border-width: t.id == AppState.active-id ? 1px : 0px;
+                        border-color: WarmTheme.brand;
+                        // Click catcher beneath the content (documented pattern:
+                        // TouchArea fills the parent; the Button above consumes
+                        // its own clicks so open+delete never double-fire).
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { AppState.open-thread(t.id); }
+                        }
+                        HorizontalBox {
+                            padding: 10px;
+                            spacing: 8px;
                         VerticalBox {
                             horizontal-stretch: 1;
                             spacing: 2px;
@@ -67,6 +72,11 @@ export component HistoryView inherits Rectangle {
                             text: "✕";
                             clicked => { AppState.delete-thread(t.id); }
                         }
+                    }
+                    }
+                    Rectangle {
+                        height: 1px;
+                        background: WarmTheme.border;
                     }
                 }
             }

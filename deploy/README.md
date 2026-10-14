@@ -61,3 +61,28 @@ unless `CA_DATA_DIR` is set). Back that folder up to keep your threads.
 - Blank window on Wayland → `QT_QPA_PLATFORM=xcb ./computer-agent`.
 - No answer, "provider" error → key missing/wrong, check §3.
 - Wipe local state → stop the app, `rm -rf ~/.local/share/computer-agent`.
+
+## 7. Inspect / iterate on the UI (slint-viewer, no build needed)
+
+Upstream prebuilt binary (pinned to our Slint 1.18.1) — same one CI uses:
+
+```bash
+gh release download v1.18.1 -R slint-ui/slint -p 'slint-viewer-linux.tar.gz' -D /tmp/viewer
+tar xzf /tmp/viewer/slint-viewer-linux.tar.gz -C /tmp/viewer
+sudo apt install -y libx11-xcb1 libxcb1 libxkbcommon0 libinput10 libgbm1  # windowed mode
+```
+
+From the repo root:
+
+```bash
+# live iteration: reloads on every .slint save
+/tmp/viewer/slint-viewer --auto-reload crates/frontend-slint/ui/appwindow.slint
+# headless screenshot (what CI's preview job uploads)
+/tmp/viewer/slint-viewer --screenshot /tmp/shot.png crates/frontend-slint/ui/appwindow.slint
+# compile diagnostics only, no window
+/tmp/viewer/slint-viewer --check crates/frontend-slint/ui/appwindow.slint
+```
+
+Seeded screenshots (threads/messages pre-filled) via `--load-data state.json`:
+dump public props with `--save-data`, edit the JSON, reload it. Element
+picking while iterating: use the Slint VS Code extension's live preview.
