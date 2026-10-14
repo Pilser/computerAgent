@@ -68,6 +68,7 @@ impl Component for Sidebar {
     ) {
         let dark = state.dark_mode;
         let (accent, _) = theme::accent(dark);
+        let ink = if dark { theme::EMBER_INK } else { theme::INK };
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.label(
@@ -148,7 +149,7 @@ impl Component for Sidebar {
                                         if ui
                                             .selectable_label(
                                                 selected,
-                                                egui::RichText::new(title).strong(),
+                                                egui::RichText::new(title).strong().color(ink),
                                             )
                                             .clicked()
                                         {

@@ -60,7 +60,7 @@ impl Component for Banner {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("⚠").strong().color(edge));
+                    ui.label(egui::RichText::new("!").strong().color(edge));
                     ui.label(egui::RichText::new(text).strong().color(ink));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if theme::chip(ui, "dismiss", dark).clicked() {

@@ -66,6 +66,7 @@ jobs:
           mkdir -p preview-out
           cp -r crates/frontend-egui/tests/fixtures/seeded /tmp/egui-seed
           chmod -R u+w /tmp/egui-seed
+          touch /tmp/egui-seed/sessions/seed-deploy-001.json
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c '
             rm -rf /tmp/egui-fresh; mkdir -p /tmp/egui-fresh
             CA_DATA_DIR=/tmp/egui-fresh ./target/debug/computer-agent-egui & echo $! > /tmp/egui-app.pid

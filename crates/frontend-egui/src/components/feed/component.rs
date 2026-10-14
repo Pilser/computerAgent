@@ -148,9 +148,9 @@ fn show_message_bubble(
             ui.set_max_width(max_w);
             ui.visuals_mut().override_text_color = Some(text);
             let role = match msg.role {
-                MessageRole::User => "you ↑",
-                MessageRole::Assistant => "assistant ↓",
-                _ => "tool ⚙",
+                MessageRole::User => "you",
+                MessageRole::Assistant => "assistant",
+                _ => "tool",
             };
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(role).strong().small().color(text));
@@ -169,7 +169,7 @@ fn show_message_bubble(
             show_message(ui, &msg.content, md_cache);
             ui.add_space(4.0);
             ui.label(
-                egui::RichText::new(format!("▲ {} tok", msg.tokens))
+                egui::RichText::new(format!("{} tok", msg.tokens))
                     .small()
                     .color(footnote),
             );

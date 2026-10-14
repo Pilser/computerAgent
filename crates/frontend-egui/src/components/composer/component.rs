@@ -71,12 +71,11 @@ impl Component for Composer {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 if state.chat.sending {
-                    let stop = egui::Button::new(
-                        egui::RichText::new("■ Stop").strong().color(theme::PAPER),
-                    )
-                    .fill(theme::DANGER)
-                    .corner_radius(egui::CornerRadius::same(theme::BUTTON_ROUNDING))
-                    .min_size(egui::vec2(110.0, 32.0));
+                    let stop =
+                        egui::Button::new(egui::RichText::new("Stop").strong().color(theme::PAPER))
+                            .fill(theme::DANGER)
+                            .corner_radius(egui::CornerRadius::same(theme::BUTTON_ROUNDING))
+                            .min_size(egui::vec2(110.0, 32.0));
                     if ui.add(stop).clicked() {
                         state.chat.sending = false;
                         engine.cancel_all();

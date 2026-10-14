@@ -47,15 +47,15 @@ impl Component for Topbar {
         let (accent, _) = theme::accent(dark);
         let ink = if dark { theme::EMBER_INK } else { theme::INK };
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("⬢").size(18.0).color(accent));
+            ui.label(egui::RichText::new("»").size(18.0).color(accent));
             ui.label(
                 egui::RichText::new("computerAgent")
                     .strong()
                     .size(17.0)
                     .color(ink),
             );
-            let moon = if dark { "☀ light" } else { "☾ dark" };
-            if theme::chip(ui, moon, dark).clicked() {
+            let theme_label = if dark { "light" } else { "dark" };
+            if theme::chip(ui, theme_label, dark).clicked() {
                 state.dark_mode = !dark;
             }
             let mut picked = state.models.current.clone();
@@ -81,7 +81,11 @@ impl Component for Topbar {
                     .desired_width(120.0)
                     .show_percentage(),
             );
-            ui.label(egui::RichText::new(state.usage.ctx_label()).weak().small());
+            ui.label(
+                egui::RichText::new(state.usage.ctx_label())
+                    .small()
+                    .color(theme::soft_text(dark, false)),
+            );
             ui.label(
                 egui::RichText::new(state.usage.cost_label())
                     .strong()
