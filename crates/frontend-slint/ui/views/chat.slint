@@ -137,6 +137,7 @@ export component ChatView inherits Rectangle {
 
         composer := HorizontalBox {
             spacing: WarmTheme.gap;
+            alignment: LayoutAlignment.center;
             model-picker := ComboBox {
                 max-width: 220px;
                 model: AppState.models;
@@ -146,29 +147,42 @@ export component ChatView inherits Rectangle {
                 current-value: AppState.current-model;
                 selected(value) => { AppState.set-model(value); }
             }
-            input := TextInput {
+            // TextInput is a bare editor (no border/background), so it
+            // needs an explicit frame or it is invisible when empty.
+            frame := Rectangle {
                 horizontal-stretch: 1;
                 min-height: 84px;
-                font-size: WarmTheme.font-body;
-                color: WarmTheme.text;
-                wrap: word-wrap;
-                text <=> AppState.draft;
-                enabled: !AppState.sending;
-                key-pressed(event) => {
-                    // Enter sends; Shift+Enter keeps a newline.
-                    if (event.text == Key.Return && !event.modifiers.shift) {
-                        if (AppState.draft != "") {
-                            AppState.send-message(AppState.draft);
+                background: WarmTheme.surface;
+                border-width: 1px;
+                border-color: WarmTheme.border;
+                border-radius: 8px;
+                VerticalBox {
+                    padding: 8px;
+                    input := TextInput {
+                        vertical-stretch: 1;
+                        font-size: WarmTheme.font-body;
+                        color: WarmTheme.text;
+                        wrap: word-wrap;
+                        text <=> AppState.draft;
+                        enabled: !AppState.sending;
+                        key-pressed(event) => {
+                            // Enter sends; Shift+Enter keeps a newline.
+                            if (event.text == Key.Return && !event.modifiers.shift) {
+                                if (AppState.draft != "") {
+                                    AppState.send-message(AppState.draft);
+                                }
+                                return accept;
+                            }
+                            return reject;
                         }
-                        return accept;
                     }
-                    return reject;
                 }
             }
             // Primary send: custom so it stays readable on paper in both
             // schemes (std Button follows Palette and washes out).
             send := Rectangle {
                 width: 92px;
+                height: 84px;
                 background: (ta.has-hover && send-enabled) ? WarmTheme.amber : WarmTheme.brand;
                 opacity: send-enabled ? 1.0 : 0.45;
                 border-radius: WarmTheme.radius;
