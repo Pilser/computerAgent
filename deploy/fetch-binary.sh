@@ -22,11 +22,11 @@ if [ -z "$TKN" ]; then
 fi
 
 RUN_ID="$(curl -sf -H "Authorization: Bearer $TKN" \
-  "https://api.github.com/repos/Pilser/computerAgent/actions/runs?per_page=10" \
+  "https://api.github.com/repos/Pilser/computerAgent/actions/runs?per_page=5" \
   | python3 -c "
 import json, sys
 runs = json.load(sys.stdin)['workflow_runs']
-good = [r for r in runs if r['head_branch'] == '$TAG' and r['conclusion'] == 'success']
+good = [r for r in runs if r['head_branch'] == '$TAG' and r['conclusion'] == 'success' and r['name'] == 'release']
 print(good[0]['id'] if good else '')
 ")"
 if [ -z "$RUN_ID" ]; then
