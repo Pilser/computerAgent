@@ -92,7 +92,7 @@ impl Component for Feed {
                     ui.label(egui::RichText::new("No messages yet — say hi below.").weak());
                 }
                 for (idx, msg) in &visible {
-                    show_message_bubble(ui, *idx, msg, &mut self.md_cache, overlays, state);
+                    show_message_bubble(ui, idx, msg, &mut self.md_cache, overlays, state);
                     ui.add_space(8.0);
                 }
             });
@@ -129,7 +129,7 @@ fn show_message_bubble(
             overlays.push_toast("copied message", std::time::Duration::from_secs(2));
         }
         if ui.small_button("…").clicked() {
-            state.chat.menu_message = Some(*idx);
+            state.chat.menu_message = Some(idx);
             overlays.show_menu("menu");
         }
     });
